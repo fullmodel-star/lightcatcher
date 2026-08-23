@@ -15,7 +15,7 @@
 - ✅ Phase 5b Web Push推播：VAPID金鑰已產生（公鑰硬編在前端，私鑰是Edge Function secret不落任何檔案）；Profile頁「啟用推播通知」按鈕訂閱瀏覽器推播並存進`push_subscriptions`表；Edge Function `check-alerts`已部署（複製一份weatherMath評分邏輯，改公式要兩邊同步改），`.github/workflows/push-alerts.yml`每3小時觸發一次；**GitHub Actions手動觸發實測成功**（`{"checked":0,"sent":0}`，因為目前還沒人訂閱熱點，屬正常回應）；同一訂閱6小時內不重複通知
 - ✅ Phase 6 品牌套用：`ridgeline-branding` skill注入footer（署名/版權/免責聲明，內容針對氣象預測App重寫，非套用英語家族的預設文案）＋PWA安裝按鈕；正式icon已產出（Tabler `sunset-2`重上色`#EEF3F6`+squircle+k2家族色`#A64B38`，簽名帶檢測signature_band_px=0通過），已登記進`05_品牌資源\03_App圖示_正式檔\02_安裝icon_其他家族\_README.md`避免撞圖；手繪佔位`icon.svg`已刪除，manifest改用正式`icon-192.png`/`icon-512.png`；sw升到v3
 
-**402光影獵人 Phase 0-6 全部完成，功能面開發告一段落。** 尚未部署上線（見下方部署章節），也還沒有真人實際操作測試過（GPS定位互動、magic-link登入的實際信箱收信流程、真實推播送達手機）。
+**402光影獵人 Phase 0-6 全部完成，2026-08-23已上線 https://lightcatcher.pages.dev/**（`node _tools\build-staging.mjs` → wrangler Pages `--branch main`，實測Production環境、sw active、地圖真的抓得到即時機率分數）。**仍未做的驗證**：GPS定位互動、magic-link登入的實際信箱收信流程、真實推播送達手機——這幾項需要真人親自操作，headless測試模擬不了。
 
 ## 評分公式現況（重要：目前是「方向正確、可運作」的推估係數，不是精雕過的權重）
 
@@ -25,13 +25,17 @@ PRD 只給了每個因子的方向（越低越好/40-70%最佳等），沒給精
 
 Supabase 免費專案**連續7天無API活動會自動暫停**（資料不會丟，但App會連不上）。`.github\workflows\keepalive.yml` 每3天打一次輕量查詢，anon key設計上可公開所以直接寫在workflow裡，沒有另外設repo secret。**這支排程要repo實際push上GitHub、且Actions沒被停用才會生效**，遷移repo或改機構名稱時要記得確認它還在跑。
 
-## 部署（Phase 4+ 才會用到，目前僅本機開發）
+## 部署
+
+**已上線**：https://lightcatcher.pages.dev/（2026-08-23，Cloudflare Pages，帳號fullmodel@gmail.com）
 
 ```
-node _tools\build-staging.mjs   # 尚未建立，比照401做法：乾淨staging排除_docs/_spec/.md
+node _tools\build-staging.mjs
 cd _staging
 npx wrangler pages deploy . --project-name=lightcatcher --branch main --commit-dirty=true
 ```
+
+`_tools\build-staging.mjs` 排除 `_*`／`.md`／`.sql`／`.py`／`.git`／`.github`／`supabase`／`brand.config.json`，自帶「sw.js ASSETS都在staging」與「無底線路徑外洩」兩道檢查，沒過會`exit 1`。**不要手打glob**。
 
 ## 品牌 icon（待Phase 6產出）
 
@@ -39,6 +43,7 @@ npx wrangler pages deploy . --project-name=lightcatcher --branch main --commit-d
 
 ## 更新記錄
 
+- 2026-08-23 v0.4：上線 https://lightcatcher.pages.dev/（wrangler Pages，Production/main實測確認）。新增`_tools\build-staging.mjs`。
 - 2026-08-23 v0.3：完成 Phase 6。套用稜線品牌識別(footer+安裝按鈕)＋正式icon(sunset-2)，Phase 0-6全部完成。
 - 2026-08-23 v0.2：完成 Phase 3。Supabase專案建好(4表+RLS+Storage bucket)，Email magic-link登入，GitHub repo `fullmodel-star/lightcatcher`公開建立並push，免費保活workflow實測手動觸發成功(HTTP 200)。⚠️首次push後GitHub Actions workflow清單一度顯示0筆（索引延遲），多推一次commit後才正常註冊，遇到同樣狀況不用懷疑YAML語法，先試著再push一次。
 - 2026-08-23 v0.1：開案，完成 Phase 0-2（專案骨架、天文計算、氣象評分演算法），Open-Meteo API 欄位實測通過。
