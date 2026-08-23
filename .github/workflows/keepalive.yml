@@ -1,0 +1,19 @@
+name: Supabase keepalive
+
+# Supabase免費專案連續7天無API活動會自動暫停，這支workflow每3天
+# ping一次輕量查詢，讓它一直維持在活動狀態。anon key是設計上可公開
+# 的金鑰（受RLS保護），寫在這裡沒有外流風險，不需要放repo secret。
+on:
+  schedule:
+    - cron: '0 3 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          curl -sf "https://ejqdyozjpewjwtnqohqd.supabase.co/rest/v1/spots?select=id&limit=1" \
+            -H "apikey: sb_publishable_mzkI2x9tbLELjcxK8q_ixQ_LElC_w4R" \
+            -o /dev/null -w "HTTP %{http_code}\n"

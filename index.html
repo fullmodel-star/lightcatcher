@@ -122,9 +122,23 @@
   </section>
 
   <section data-view="profile">
-    <div class="placeholder">
-      <p>⚙️ 設定</p>
-      <p class="muted">Phase 5 開發中：推播門檻設定、帳號管理。</p>
+    <div class="card" id="authLoggedOut">
+      <h2>登入</h2>
+      <p class="muted">用Email收登入連結，不用記密碼。訂閱熱點/回報大景都需要先登入。</p>
+      <div class="row">
+        <input type="email" id="authEmail" placeholder="you@example.com" style="flex:1;min-width:180px;padding:8px;border:1px solid var(--line);border-radius:8px">
+        <button id="btnSendLink">寄送登入連結</button>
+      </div>
+      <p class="muted" id="authStatus" style="margin-top:8px"></p>
+    </div>
+    <div class="card" id="authLoggedIn" style="display:none">
+      <h2>帳號</h2>
+      <p id="authEmailDisplay"></p>
+      <button class="secondary" id="btnLogout">登出</button>
+    </div>
+    <div class="card">
+      <h2>推播門檻</h2>
+      <p class="muted">Phase 5 開發中：訂閱熱點後，機率超過設定值才推播提醒。</p>
     </div>
   </section>
 </main>
@@ -136,6 +150,8 @@
 
 <script src="./vendor/suncalc.js"></script>
 <script src="./weatherMath.js"></script>
+<script src="./vendor/supabase.js"></script>
+<script src="./supabaseClient.js"></script>
 <script>
 (function () {
   'use strict';
@@ -259,6 +275,45 @@
     } catch (err) {
       statusEl.textContent = '抓取失敗：' + err.message;
     }
+  });
+
+  // ---- 帳號登入（Supabase Email magic link） ----
+  function renderAuthUI(session) {
+    const loggedOut = document.getElementById('authLoggedOut');
+    const loggedIn = document.getElementById('authLoggedIn');
+    if (session) {
+      loggedOut.style.display = 'none';
+      loggedIn.style.display = 'block';
+      document.getElementById('authEmailDisplay').textContent = session.user.email;
+    } else {
+      loggedOut.style.display = 'block';
+      loggedIn.style.display = 'none';
+    }
+  }
+
+  window.SB.auth.getSession().then(({ data }) => renderAuthUI(data.session));
+
+  window.SB.auth.onAuthStateChange((event, session) => {
+    renderAuthUI(session);
+    if (event === 'SIGNED_IN' && session) {
+      window.SB.from('profiles').upsert({
+        id: session.user.id,
+        username: session.user.email.split('@')[0]
+      }).then(({ error }) => { if (error) console.error('建立profile失敗', error); });
+    }
+  });
+
+  document.getElementById('btnSendLink').addEventListener('click', async () => {
+    const email = document.getElementById('authEmail').value.trim();
+    const statusEl = document.getElementById('authStatus');
+    if (!email) return;
+    statusEl.textContent = '寄送中…';
+    const { error } = await window.SB.auth.signInWithOtp({ email });
+    statusEl.textContent = error ? '寄送失敗：' + error.message : '登入連結已寄出，請檢查信箱';
+  });
+
+  document.getElementById('btnLogout').addEventListener('click', () => {
+    window.SB.auth.signOut();
   });
 
   // ---- service worker + 更新橫幅 ----

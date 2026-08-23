@@ -7,7 +7,9 @@ const ASSETS = [
   './manifest.json',
   './icon.svg',
   './weatherMath.js',
-  './vendor/suncalc.js'
+  './vendor/suncalc.js',
+  './vendor/supabase.js',
+  './supabaseClient.js'
 ];
 
 self.addEventListener('install', (event) => {
