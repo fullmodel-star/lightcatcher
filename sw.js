@@ -9,7 +9,12 @@ const ASSETS = [
   './weatherMath.js',
   './vendor/suncalc.js',
   './vendor/supabase.js',
-  './supabaseClient.js'
+  './supabaseClient.js',
+  './vendor/leaflet/leaflet.js',
+  './vendor/leaflet/leaflet.css',
+  './vendor/leaflet/images/marker-icon.png',
+  './vendor/leaflet/images/marker-icon-2x.png',
+  './vendor/leaflet/images/marker-shadow.png'
 ];
 
 self.addEventListener('install', (event) => {

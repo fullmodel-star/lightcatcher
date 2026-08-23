@@ -6,6 +6,7 @@
 <title>光影獵人 LightCatcher</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
 <meta name="theme-color" content="#A64B38">
 <style>
   :root{
@@ -40,6 +41,11 @@
   .update-bar button{padding:6px 12px;font-size:13px}
   section[data-view]{display:none}
   section[data-view].active{display:block}
+  #mapView{height:60vh;min-height:360px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--steel);margin-top:8px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .popup-btn{margin-top:6px;padding:6px 10px;font-size:12px}
 </style>
 </head>
 <body>
@@ -108,9 +114,15 @@
   </section>
 
   <section data-view="map">
-    <div class="placeholder">
-      <p>🗺️ 地圖探索</p>
-      <p class="muted">Phase 4 開發中：全台攝影熱點地圖，圖標依機率分數變色。</p>
+    <div class="card">
+      <h2>攝影熱點地圖</h2>
+      <div id="mapView"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#3F6B4F"></i>機率低</span>
+        <span><i class="dot" style="background:#DE9A45"></i>機率中</span>
+        <span><i class="dot" style="background:#A64B38"></i>機率高（>75）</span>
+      </div>
+      <p class="muted" id="mapStatus" style="margin-top:8px"></p>
     </div>
   </section>
 
@@ -148,6 +160,7 @@
   <button id="btnUpdate">立即更新</button>
 </div>
 
+<script src="./vendor/leaflet/leaflet.js"></script>
 <script src="./vendor/suncalc.js"></script>
 <script src="./weatherMath.js"></script>
 <script src="./vendor/supabase.js"></script>
@@ -168,6 +181,79 @@
   }
   window.addEventListener('hashchange', render);
   render();
+
+  // ---- 地圖探索 ----
+  let mapInited = false;
+  let leafletMap = null;
+
+  function scoreColor(score) {
+    if (score > 75) return '#A64B38';
+    if (score > 40) return '#DE9A45';
+    return '#3F6B4F';
+  }
+
+  async function scoreForSpot(spot) {
+    const data = await window.WeatherMath.fetchHourlyWeather(spot.lat, spot.lng);
+    const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
+    const h = window.WeatherMath.hourAt(data.hourly, idx);
+    if (spot.type === 'sea_of_clouds') return window.WeatherMath.seaOfCloudsScore(h).score;
+    if (spot.type === 'sunset') return window.WeatherMath.fieryGlowScore(h).score;
+    // 'stars'：PRD沒給觀星評分公式，先用低雲量當粗略代理指標（雲越少越適合觀星）
+    return Math.round(100 - h.cloudLow);
+  }
+
+  window.subscribeSpot = async function (spotId) {
+    const { data: { session } } = await window.SB.auth.getSession();
+    if (!session) { alert('請先到「設定」分頁登入才能訂閱'); return; }
+    const { error } = await window.SB.from('subscriptions').upsert({
+      user_id: session.user.id,
+      spot_id: spotId,
+      notify_threshold: 75
+    }, { onConflict: 'user_id,spot_id' });
+    alert(error ? '訂閱失敗：' + error.message : '訂閱成功！');
+  };
+
+  async function initMapIfNeeded() {
+    if (mapInited) return;
+    mapInited = true;
+    const statusEl = document.getElementById('mapStatus');
+    leafletMap = L.map('mapView').setView([23.7, 121.0], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 18
+    }).addTo(leafletMap);
+    leafletMap.invalidateSize();
+
+    statusEl.textContent = '載入熱點中…';
+    const { data: spots, error } = await window.SB.from('spots').select('*');
+    if (error) { statusEl.textContent = '載入失敗：' + error.message; return; }
+    if (!spots || !spots.length) { statusEl.textContent = '目前還沒有熱點資料（可在Supabase跑seed.sql加幾筆）'; return; }
+
+    let done = 0;
+    await Promise.all(spots.map(async (spot) => {
+      let score = null;
+      try { score = await scoreForSpot(spot); } catch (e) { /* 單一熱點失敗不擋其他熱點 */ }
+      const color = score === null ? '#BECBD5' : scoreColor(score);
+      const marker = L.circleMarker([spot.lat, spot.lng], {
+        radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9
+      }).addTo(leafletMap);
+      const scoreText = score === null ? '無法計算' : `${score}分`;
+      marker.bindPopup(
+        `<strong>${spot.name}</strong><br>` +
+        `類型：${spot.type}　海拔：${spot.min_elevation}m<br>` +
+        `今日機率：${scoreText}<br>` +
+        `<button class="popup-btn" onclick="subscribeSpot('${spot.id}')">🔔 訂閱這個熱點</button>`
+      );
+      done++;
+      statusEl.textContent = `已載入 ${done}/${spots.length} 個熱點`;
+    }));
+    statusEl.textContent = `共 ${spots.length} 個熱點（點圖標看詳情）`;
+  }
+
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#map') initMapIfNeeded();
+  });
+  if (location.hash === '#map') initMapIfNeeded();
 
   // ---- 定位 ----
   let coords = null;
