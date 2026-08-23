@@ -1,11 +1,13 @@
-const CACHE = 'lightcatcher-v1';
+const CACHE = 'lightcatcher-v3';
 
 // 鐵則16：預先快取清單不放任何 .html（含 index.html），避免 Cloudflare Pages
 // 對 .html 的 308 轉址被存成 redirected:true 的 Response 後拿去 respondWith 導覽請求。
 // index.html 由 fetch handler 在造訪時才動態快取。
 const ASSETS = [
   './manifest.json',
-  './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './favicon-32.png',
   './weatherMath.js',
   './vendor/suncalc.js',
   './vendor/supabase.js',
@@ -40,7 +42,7 @@ self.addEventListener('push', (event) => {
   try { data = event.data.json(); } catch (e) { /* 沒帶payload就用預設文字 */ }
   event.waitUntil(self.registration.showNotification(data.title || '光影獵人', {
     body: data.body || '',
-    icon: './icon.svg'
+    icon: './icon-192.png'
   }));
 });
 

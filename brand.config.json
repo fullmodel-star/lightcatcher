@@ -1,0 +1,12 @@
+{
+  "_說明": "換專案只要改這個檔的值即可；空字串代表該行不顯示。",
+  "_logo說明": "footer logo 一律用 family_slug 指定官方山形圖，不要手刻SVG。",
+  "byline": "Ridgeline · by Lucas",
+  "family_slug": "k2",
+  "slogan_html": "最美的那道光，<br>最值得你等。",
+  "license": "© 2026 Lucas　本 App 免費提供拍攝規劃參考使用；程式與內容著作權皆屬作者，未經同意請勿重製、散布或作商業用途。",
+  "disclaimer": "⚠️ 免責聲明：本App之機率預測基於Open-Meteo公開氣象資料自動計算，僅供攝影行程參考，實際天候瞬息萬變，不保證準確；高山與偏遠景點請自行評估路況與安全，本App不可作為登山安全判斷的唯一依據。",
+  "logo_svg": "",
+  "install_button": true,
+  "build_templates": []
+}
