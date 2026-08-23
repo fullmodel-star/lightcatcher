@@ -1,0 +1,50 @@
+const CACHE = 'lightcatcher-v1';
+
+// 鐵則16：預先快取清單不放任何 .html（含 index.html），避免 Cloudflare Pages
+// 對 .html 的 308 轉址被存成 redirected:true 的 Response 後拿去 respondWith 導覽請求。
+// index.html 由 fetch handler 在造訪時才動態快取。
+const ASSETS = [
+  './manifest.json',
+  './icon.svg',
+  './weatherMath.js',
+  './vendor/suncalc.js'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => Promise.allSettled(ASSETS.map((url) => cache.add(url))))
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          caches.open(CACHE).then((cache) => cache.put('./', res.clone()));
+          return res;
+        })
+        .catch(() => caches.match('./'))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(req).then((cached) => cached || fetch(req))
+  );
+});

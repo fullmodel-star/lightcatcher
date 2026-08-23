@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>光影獵人 LightCatcher</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#A64B38">
+<style>
+  :root{
+    --ink:#141E2B; --steel:#6E8BA3; --snow:#EEF3F6; --paper:#F7F3EC;
+    --k2:#A64B38; --good:#3F6B4F; --warn:#DE9A45; --line:#BECBD5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;background:var(--paper);color:var(--ink)}
+  header{background:var(--ink);color:var(--snow);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+  header h1{font-size:17px;margin:0;font-weight:600}
+  header .ver{font-size:11px;color:var(--steel)}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  nav a{flex:1;text-align:center;padding:12px 4px;font-size:13px;color:var(--steel);text-decoration:none;border-bottom:3px solid transparent}
+  nav a.active{color:var(--k2);border-bottom-color:var(--k2);font-weight:600}
+  main{padding:16px;max-width:520px;margin:0 auto}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--steel);font-weight:600}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{background:var(--k2);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer}
+  button.secondary{background:var(--snow);color:var(--ink)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input[type=number]{width:110px;padding:8px;border:1px solid var(--line);border-radius:8px}
+  .countdown{font-size:32px;font-weight:700;letter-spacing:1px;margin:6px 0}
+  .countdown-label{font-size:13px;color:var(--steel)}
+  .rings{display:flex;gap:20px;justify-content:center;margin-top:10px}
+  .ring-wrap{text-align:center}
+  .ring-label{font-size:12px;color:var(--steel);margin-top:6px}
+  .ring-alert{color:var(--k2);font-weight:600}
+  .muted{color:var(--steel);font-size:13px}
+  .placeholder{padding:40px 16px;text-align:center;color:var(--steel)}
+  .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;padding:12px 16px;align-items:center;justify-content:space-between;font-size:13px}
+  .update-bar button{padding:6px 12px;font-size:13px}
+  section[data-view]{display:none}
+  section[data-view].active{display:block}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>光影獵人 LightCatcher</h1>
+  <span class="ver">v0.1</span>
+</header>
+
+<nav id="nav">
+  <a href="#dashboard" data-view="dashboard">首頁</a>
+  <a href="#map" data-view="map">地圖探索</a>
+  <a href="#radar" data-view="radar">即時動態</a>
+  <a href="#profile" data-view="profile">設定</a>
+</nav>
+
+<main>
+  <section data-view="dashboard">
+    <div class="card">
+      <h2>目前位置</h2>
+      <div class="row">
+        <button id="btnLocate">📍 使用目前位置</button>
+        <span class="muted" id="locStatus">尚未定位</span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input type="number" id="manualLat" placeholder="緯度" step="0.0001">
+        <input type="number" id="manualLng" placeholder="經度" step="0.0001">
+        <button class="secondary" id="btnManual">手動設定</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="countdownLabel">下一個光影時刻</h2>
+      <div class="countdown" id="countdownTime">--:--:--</div>
+      <div class="countdown-label" id="countdownEvent">請先定位</div>
+    </div>
+
+    <div class="card">
+      <h2>今日機率預測</h2>
+      <div class="row">
+        <button id="btnWeather" disabled>抓取氣象預測</button>
+        <span class="muted" id="weatherStatus"></span>
+      </div>
+      <div class="rings" id="rings" style="display:none">
+        <div class="ring-wrap">
+          <svg width="90" height="90" viewBox="0 0 90 90">
+            <circle cx="45" cy="45" r="38" fill="none" stroke="var(--line)" stroke-width="9"/>
+            <circle id="ringGlow" cx="45" cy="45" r="38" fill="none" stroke="var(--k2)" stroke-width="9"
+              stroke-dasharray="238.76" stroke-dashoffset="238.76" transform="rotate(-90 45 45)" stroke-linecap="round"/>
+            <text id="ringGlowText" x="45" y="50" text-anchor="middle" font-size="18" font-weight="700">0</text>
+          </svg>
+          <div class="ring-label">火燒雲指數</div>
+        </div>
+        <div class="ring-wrap">
+          <svg width="90" height="90" viewBox="0 0 90 90">
+            <circle cx="45" cy="45" r="38" fill="none" stroke="var(--line)" stroke-width="9"/>
+            <circle id="ringSea" cx="45" cy="45" r="38" fill="none" stroke="var(--steel)" stroke-width="9"
+              stroke-dasharray="238.76" stroke-dashoffset="238.76" transform="rotate(-90 45 45)" stroke-linecap="round"/>
+            <text id="ringSeaText" x="45" y="50" text-anchor="middle" font-size="18" font-weight="700">0</text>
+          </svg>
+          <div class="ring-label">雲海指數</div>
+        </div>
+      </div>
+      <div id="weatherAlert" class="ring-alert" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section data-view="map">
+    <div class="placeholder">
+      <p>🗺️ 地圖探索</p>
+      <p class="muted">Phase 4 開發中：全台攝影熱點地圖，圖標依機率分數變色。</p>
+    </div>
+  </section>
+
+  <section data-view="radar">
+    <div class="placeholder">
+      <p>📡 即時動態牆</p>
+      <p class="muted">Phase 5 開發中：社群即時回報大景目擊照片，需先完成 Supabase 後端。</p>
+    </div>
+  </section>
+
+  <section data-view="profile">
+    <div class="placeholder">
+      <p>⚙️ 設定</p>
+      <p class="muted">Phase 5 開發中：推播門檻設定、帳號管理。</p>
+    </div>
+  </section>
+</main>
+
+<div class="update-bar" id="updateBar">
+  <span>有新版本可用</span>
+  <button id="btnUpdate">立即更新</button>
+</div>
+
+<script src="./vendor/suncalc.js"></script>
+<script src="./weatherMath.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- hash 路由 ----
+  function render() {
+    const view = (location.hash || '#dashboard').slice(1);
+    document.querySelectorAll('section[data-view]').forEach((s) => {
+      s.classList.toggle('active', s.dataset.view === view);
+    });
+    document.querySelectorAll('#nav a').forEach((a) => {
+      a.classList.toggle('active', a.dataset.view === view);
+    });
+  }
+  window.addEventListener('hashchange', render);
+  render();
+
+  // ---- 定位 ----
+  let coords = null;
+
+  function setCoords(lat, lng, source) {
+    coords = { lat, lng };
+    document.getElementById('locStatus').textContent = `${source}：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    document.getElementById('btnWeather').disabled = false;
+    updateCountdown();
+  }
+
+  document.getElementById('btnLocate').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      document.getElementById('locStatus').textContent = '此瀏覽器不支援定位，請手動輸入';
+      return;
+    }
+    document.getElementById('locStatus').textContent = '定位中…';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords(pos.coords.latitude, pos.coords.longitude, 'GPS'),
+      () => { document.getElementById('locStatus').textContent = '定位失敗，請手動輸入經緯度'; }
+    );
+  });
+
+  document.getElementById('btnManual').addEventListener('click', () => {
+    const lat = parseFloat(document.getElementById('manualLat').value);
+    const lng = parseFloat(document.getElementById('manualLng').value);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+    setCoords(lat, lng, '手動輸入');
+  });
+
+  // ---- 黃金/藍調時刻倒數 ----
+  let countdownTimer = null;
+
+  function nextEvent(now, lat, lng) {
+    const todayTimes = window.WeatherMath.getGoldenBlueHours(now, lat, lng);
+    const candidates = [
+      { key: '晨間藍調時刻', t: todayTimes.dawnBlue.start },
+      { key: '晨間黃金時刻', t: todayTimes.dawnGolden.start },
+      { key: '傍晚黃金時刻', t: todayTimes.duskGolden.start },
+      { key: '傍晚藍調時刻', t: todayTimes.duskBlue.start }
+    ].filter((c) => c.t instanceof Date && !Number.isNaN(c.t.getTime()) && c.t > now);
+
+    if (candidates.length) {
+      candidates.sort((a, b) => a.t - b.t);
+      return candidates[0];
+    }
+    // 今天全部過了，算明天的晨間藍調時刻
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tmr = window.WeatherMath.getGoldenBlueHours(tomorrow, lat, lng);
+    return { key: '晨間藍調時刻', t: tmr.dawnBlue.start };
+  }
+
+  function updateCountdown() {
+    if (countdownTimer) clearInterval(countdownTimer);
+    if (!coords) return;
+
+    function tick() {
+      const now = new Date();
+      const ev = nextEvent(now, coords.lat, coords.lng);
+      if (!ev.t || Number.isNaN(ev.t.getTime())) {
+        document.getElementById('countdownTime').textContent = '無法計算';
+        document.getElementById('countdownEvent').textContent = '此緯度可能有極晝/極夜';
+        return;
+      }
+      const diff = Math.max(0, ev.t - now);
+      const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+      const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+      const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+      document.getElementById('countdownTime').textContent = `${h}:${m}:${s}`;
+      document.getElementById('countdownEvent').textContent = `距離${ev.key}`;
+    }
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
+
+  // ---- 氣象評分 ----
+  function setRing(id, textId, score) {
+    const circumference = 238.76;
+    const el = document.getElementById(id);
+    el.setAttribute('stroke-dashoffset', String(circumference * (1 - score / 100)));
+    document.getElementById(textId).textContent = score;
+  }
+
+  document.getElementById('btnWeather').addEventListener('click', async () => {
+    if (!coords) return;
+    const statusEl = document.getElementById('weatherStatus');
+    statusEl.textContent = '抓取中…';
+    try {
+      const data = await window.WeatherMath.fetchHourlyWeather(coords.lat, coords.lng);
+      const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
+      const h = window.WeatherMath.hourAt(data.hourly, idx);
+      const glow = window.WeatherMath.fieryGlowScore(h);
+      const sea = window.WeatherMath.seaOfCloudsScore(h);
+
+      setRing('ringGlow', 'ringGlowText', glow.score);
+      setRing('ringSea', 'ringSeaText', sea.score);
+      document.getElementById('rings').style.display = 'flex';
+
+      const alerts = [];
+      if (glow.alert) alerts.push('🔥 火燒雲大景預警');
+      if (sea.alert) alerts.push('☁️ 雲海大景預警');
+      document.getElementById('weatherAlert').textContent = alerts.join('　');
+      statusEl.textContent = `已更新（${data.hourly.time[idx]}）`;
+    } catch (err) {
+      statusEl.textContent = '抓取失敗：' + err.message;
+    }
+  });
+
+  // ---- service worker + 更新橫幅 ----
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            document.getElementById('updateBar').style.display = 'flex';
+          }
+        });
+      });
+      document.getElementById('btnUpdate').addEventListener('click', () => {
+        reg.waiting && reg.waiting.postMessage('SKIP_WAITING');
+        location.reload();
+      });
+    });
+  }
+}());
+</script>
+</body>
+</html>
