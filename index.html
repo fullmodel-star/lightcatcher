@@ -178,8 +178,12 @@
       <button class="secondary" id="btnLogout">登出</button>
     </div>
     <div class="card">
-      <h2>推播門檻</h2>
-      <p class="muted">Phase 5 開發中：訂閱熱點後，機率超過設定值才推播提醒。</p>
+      <h2>推播通知</h2>
+      <p class="muted">開啟後，訂閱的熱點機率超過門檻(預設75分)時會推播提醒。iPhone需先把這個網頁「加入主畫面」才能收到推播。</p>
+      <div class="row" style="margin-top:8px">
+        <button id="btnEnablePush">🔔 啟用推播通知</button>
+        <span class="muted" id="pushStatus"></span>
+      </div>
     </div>
   </section>
 </main>
@@ -533,6 +537,46 @@
     });
     statusEl.textContent = error ? '回報失敗：' + error.message : '回報成功！';
     if (!error) document.getElementById('reportPhoto').value = '';
+  });
+
+  // ---- 推播通知 ----
+  const VAPID_PUBLIC_KEY = 'BFwjEVxr-JwCHggWVn6yN6GsLi75fGl2OrKctVk_QRUPyboJ1R8VVzCt7310cA_PUFqKaZpPwpoOGNRchmM118o';
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
+  document.getElementById('btnEnablePush').addEventListener('click', async () => {
+    const statusEl = document.getElementById('pushStatus');
+    const { data: { session } } = await window.SB.auth.getSession();
+    if (!session) { statusEl.textContent = '請先登入'; return; }
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      statusEl.textContent = '此瀏覽器不支援推播'; return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { statusEl.textContent = '未取得推播權限'; return; }
+
+    statusEl.textContent = '啟用中…';
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+      const j = sub.toJSON();
+      const { error } = await window.SB.from('push_subscriptions').upsert({
+        user_id: session.user.id,
+        endpoint: j.endpoint,
+        p256dh: j.keys.p256dh,
+        auth: j.keys.auth
+      }, { onConflict: 'endpoint' });
+      statusEl.textContent = error ? '啟用失敗：' + error.message : '推播已啟用！';
+    } catch (err) {
+      statusEl.textContent = '啟用失敗：' + err.message;
+    }
   });
 
   // ---- service worker + 更新橫幅 ----

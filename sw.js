@@ -35,6 +35,20 @@ self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data.json(); } catch (e) { /* 沒帶payload就用預設文字 */ }
+  event.waitUntil(self.registration.showNotification(data.title || '光影獵人', {
+    body: data.body || '',
+    icon: './icon.svg'
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow('./'));
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
