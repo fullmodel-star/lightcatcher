@@ -230,6 +230,8 @@
     if (error) { statusEl.textContent = '載入失敗：' + error.message; return; }
     if (!spots || !spots.length) { statusEl.textContent = '目前還沒有熱點資料（可在Supabase跑seed.sql加幾筆）'; return; }
 
+    const typeLabels = { sunrise: '日出', sunset: '日落', sea_of_clouds: '雲海', stars: '星空' };
+    const markers = [];
     let done = 0;
     await Promise.all(spots.map(async (spot) => {
       let score = null;
@@ -238,7 +240,6 @@
       const marker = L.circleMarker([spot.lat, spot.lng], {
         radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9
       }).addTo(leafletMap);
-      const typeLabels = { sunrise: '日出', sunset: '日落', sea_of_clouds: '雲海', stars: '星空' };
       const scoreText = score === null ? '無法計算' : `${score}分`;
       marker.bindPopup(
         `<strong>${spot.name}</strong><br>` +
@@ -246,9 +247,13 @@
         `今日機率：${scoreText}<br>` +
         `<button class="popup-btn" onclick="subscribeSpot('${spot.id}')">🔔 訂閱這個熱點</button>`
       );
+      markers.push(marker);
       done++;
       statusEl.textContent = `已載入 ${done}/${spots.length} 個熱點`;
     }));
+    if (markers.length) {
+      leafletMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
+    }
     statusEl.textContent = `共 ${spots.length} 個熱點（點圖標看詳情）`;
   }
 
