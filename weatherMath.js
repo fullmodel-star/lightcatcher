@@ -63,8 +63,8 @@
     'windspeed_10m'
   ];
 
-  async function fetchHourlyWeather(lat, lng) {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=2&timezone=auto`;
+  async function fetchHourlyWeather(lat, lng, days = 4) {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=${days}&timezone=auto`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Open-Meteo API 錯誤：${res.status}`);
     return res.json();

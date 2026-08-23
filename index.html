@@ -51,6 +51,11 @@
   .feed-item img{width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0}
   .feed-item .meta{font-size:12px;color:var(--steel)}
   .feed-item .title{font-weight:600;font-size:14px}
+  .fc-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
+  .fc-row:last-child{border-bottom:none}
+  .fc-day{font-weight:600;font-size:14px;width:70px}
+  .fc-scores{display:flex;gap:16px;font-size:13px}
+  .fc-badge{padding:3px 9px;border-radius:999px;color:#fff;font-weight:700}
 </style>
 </head>
 <body>
@@ -115,6 +120,11 @@
         </div>
       </div>
       <div id="weatherAlert" class="ring-alert" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>未來三日預測（傍晚黃金時刻）</h2>
+      <div id="forecast3" class="muted">先抓取上方今日機率後才會一起算出來</div>
     </div>
   </section>
 
@@ -378,6 +388,42 @@
     document.getElementById(textId).textContent = score;
   }
 
+  function renderForecast3(data, lat, lng) {
+    const container = document.getElementById('forecast3');
+    const dayLabels = ['明天', '後天', '大後天'];
+    const now = new Date();
+    const rows = [];
+    for (let i = 0; i < 3; i++) {
+      const day = new Date(now);
+      day.setDate(day.getDate() + i + 1);
+      const times = window.WeatherMath.getGoldenBlueHours(day, lat, lng);
+      let target = times.duskGolden.start;
+      if (!(target instanceof Date) || Number.isNaN(target.getTime())) target = times.sunset;
+      if (!(target instanceof Date) || Number.isNaN(target.getTime())) {
+        rows.push(`<div class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="muted">此緯度無法計算</div></div>`);
+        continue;
+      }
+      const idx = window.WeatherMath.nearestHourIndex(data.hourly, target);
+      const closestTime = new Date(data.hourly.time[idx]);
+      const withinRange = Math.abs(closestTime - target) < 3 * 3600 * 1000;
+      if (!withinRange) {
+        rows.push(`<div class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="muted">超出預報範圍</div></div>`);
+        continue;
+      }
+      const h = window.WeatherMath.hourAt(data.hourly, idx);
+      const glow = window.WeatherMath.fieryGlowScore(h);
+      const sea = window.WeatherMath.seaOfCloudsScore(h);
+      rows.push(`<div class="fc-row">
+        <div class="fc-day">${dayLabels[i]}</div>
+        <div class="fc-scores">
+          <span class="fc-badge" style="background:${scoreColor(glow.score)}">🔥 ${glow.score}</span>
+          <span class="fc-badge" style="background:${scoreColor(sea.score)}">☁️ ${sea.score}</span>
+        </div>
+      </div>`);
+    }
+    container.innerHTML = rows.join('');
+  }
+
   document.getElementById('btnWeather').addEventListener('click', async () => {
     if (!coords) return;
     const statusEl = document.getElementById('weatherStatus');
@@ -398,6 +444,8 @@
       if (sea.alert) alerts.push('☁️ 雲海大景預警');
       document.getElementById('weatherAlert').textContent = alerts.join('　');
       statusEl.textContent = `已更新（${data.hourly.time[idx]}）`;
+
+      renderForecast3(data, coords.lat, coords.lng);
     } catch (err) {
       statusEl.textContent = '抓取失敗：' + err.message;
     }
