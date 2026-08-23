@@ -46,6 +46,11 @@
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
   .popup-btn{margin-top:6px;padding:6px 10px;font-size:12px}
+  .feed-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .feed-item:last-child{border-bottom:none}
+  .feed-item img{width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0}
+  .feed-item .meta{font-size:12px;color:var(--steel)}
+  .feed-item .title{font-weight:600;font-size:14px}
 </style>
 </head>
 <body>
@@ -127,9 +132,33 @@
   </section>
 
   <section data-view="radar">
-    <div class="placeholder">
-      <p>📡 即時動態牆</p>
-      <p class="muted">Phase 5 開發中：社群即時回報大景目擊照片，需先完成 Supabase 後端。</p>
+    <div class="card" id="reportFormCard">
+      <h2>打卡回報</h2>
+      <p class="muted" id="reportLoginHint" style="display:none">請先到「設定」分頁登入才能回報。</p>
+      <div id="reportFormBody">
+        <div class="row" style="margin-top:8px">
+          <select id="reportSpot" style="flex:1;min-width:160px;padding:8px;border:1px solid var(--line);border-radius:8px">
+            <option value="">選擇熱點…</option>
+          </select>
+          <select id="reportPhenomenon" style="padding:8px;border:1px solid var(--line);border-radius:8px">
+            <option value="fiery_glow">🔥 火燒雲</option>
+            <option value="sea_of_clouds">☁️ 雲海</option>
+            <option value="clear_sky">☀️ 晴空</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input type="file" id="reportPhoto" accept="image/*">
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button id="btnSubmitReport">送出回報</button>
+          <span class="muted" id="reportStatus"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>即時動態牆</h2>
+      <div id="reportFeed"><p class="muted">載入中…</p></div>
     </div>
   </section>
 
@@ -382,6 +411,8 @@
       loggedOut.style.display = 'block';
       loggedIn.style.display = 'none';
     }
+    document.getElementById('reportFormBody').style.display = session ? 'block' : 'none';
+    document.getElementById('reportLoginHint').style.display = session ? 'none' : 'block';
   }
 
   window.SB.auth.getSession().then(({ data }) => renderAuthUI(data.session));
@@ -407,6 +438,101 @@
 
   document.getElementById('btnLogout').addEventListener('click', () => {
     window.SB.auth.signOut();
+  });
+
+  // ---- 即時動態牆 ----
+  const phenomenonLabels = { fiery_glow: '🔥 火燒雲', sea_of_clouds: '☁️ 雲海', clear_sky: '☀️ 晴空' };
+  let radarInited = false;
+
+  function timeAgo(iso) {
+    const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (diffMin < 1) return '剛剛';
+    if (diffMin < 60) return `${diffMin}分鐘前`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `${diffH}小時前`;
+    return `${Math.round(diffH / 24)}天前`;
+  }
+
+  function renderFeedItem(r) {
+    const spotName = (r.spots && r.spots.name) || '未知熱點';
+    const username = (r.profiles && r.profiles.username) || '匿名';
+    const photoHtml = r.image_url ? `<img src="${r.image_url}" alt="">` : '';
+    return `<div class="feed-item">
+      ${photoHtml}
+      <div>
+        <div class="title">${phenomenonLabels[r.phenomenon] || r.phenomenon}　${spotName}</div>
+        <div class="meta">${username}　${timeAgo(r.reported_at)}</div>
+      </div>
+    </div>`;
+  }
+
+  async function loadFeed() {
+    const feedEl = document.getElementById('reportFeed');
+    const { data, error } = await window.SB
+      .from('reports')
+      .select('*, spots(name), profiles(username)')
+      .order('reported_at', { ascending: false })
+      .limit(20);
+    if (error) { feedEl.innerHTML = `<p class="muted">載入失敗：${error.message}</p>`; return; }
+    feedEl.innerHTML = data.length
+      ? data.map(renderFeedItem).join('')
+      : '<p class="muted">還沒有人回報，當第一個吧！</p>';
+  }
+
+  async function populateSpotSelect() {
+    const sel = document.getElementById('reportSpot');
+    const { data: spots } = await window.SB.from('spots').select('id,name').order('name');
+    (spots || []).forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  function initRadarIfNeeded() {
+    if (radarInited) return;
+    radarInited = true;
+    populateSpotSelect();
+    loadFeed();
+
+    window.SB.channel('reports-feed')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => loadFeed())
+      .subscribe();
+  }
+
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#radar') initRadarIfNeeded();
+  });
+  if (location.hash === '#radar') initRadarIfNeeded();
+
+  document.getElementById('btnSubmitReport').addEventListener('click', async () => {
+    const statusEl = document.getElementById('reportStatus');
+    const { data: { session } } = await window.SB.auth.getSession();
+    if (!session) { statusEl.textContent = '請先登入'; return; }
+
+    const spotId = document.getElementById('reportSpot').value;
+    if (!spotId) { statusEl.textContent = '請選擇熱點'; return; }
+    const phenomenon = document.getElementById('reportPhenomenon').value;
+    const file = document.getElementById('reportPhoto').files[0];
+
+    statusEl.textContent = '送出中…';
+    let imageUrl = null;
+    if (file) {
+      const path = `${session.user.id}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await window.SB.storage.from('report-photos').upload(path, file);
+      if (upErr) { statusEl.textContent = '照片上傳失敗：' + upErr.message; return; }
+      imageUrl = window.SB.storage.from('report-photos').getPublicUrl(path).data.publicUrl;
+    }
+
+    const { error } = await window.SB.from('reports').insert({
+      spot_id: spotId,
+      user_id: session.user.id,
+      phenomenon,
+      image_url: imageUrl
+    });
+    statusEl.textContent = error ? '回報失敗：' + error.message : '回報成功！';
+    if (!error) document.getElementById('reportPhoto').value = '';
   });
 
   // ---- service worker + 更新橫幅 ----
