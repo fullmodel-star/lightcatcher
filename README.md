@@ -9,7 +9,7 @@
 - ✅ Phase 0 專案骨架：`index.html`/`manifest.json`/`sw.js`/`weatherMath.js`
 - ✅ Phase 1 天文計算：`suncalc`（vendor 本機化，MIT/BSD授權）算黃金時刻/藍調時刻，Dashboard 倒數計時器
 - ✅ Phase 2 氣象評分：Open-Meteo API（免key）串接，火燒雲指數/雲海指數兩個評分函式；**已實測確認** `temperature_850hPa`／`relativehumidity_850hPa`／`temperature_925hPa`／`relativehumidity_925hPa` 等氣壓層欄位在預設 model 下都存在，PRD 原始欄位名稱可直接使用，不用挑特定 model
-- ✅ Phase 3 後端：Supabase 專案（org `Ridgeline-Lab`，雪梨機房，URL `ejqdyozjpewjwtnqohqd.supabase.co`）建好，4張表+RLS+Storage bucket(`report-photos`)都已建立並實測；`supabaseClient.js` 接好 SDK；Profile 頁做了 Email magic-link 登入/登出，登入時自動 upsert 一筆 `profiles`；`.github\workflows\keepalive.yml` 免費保活排程已寫好、實測API可通，**待repo建好push上去才會真的開始跑**
+- ✅ Phase 3 後端：Supabase 專案（org `Ridgeline-Lab`，雪梨機房，URL `ejqdyozjpewjwtnqohqd.supabase.co`）建好，4張表+RLS+Storage bucket(`report-photos`)都已建立並實測；`supabaseClient.js` 接好 SDK；Profile 頁做了 Email magic-link 登入/登出，登入時自動 upsert 一筆 `profiles`；GitHub repo `fullmodel-star/lightcatcher`（公開）已建立並push，`.github\workflows\keepalive.yml` 免費保活排程已實測跑過一次（手動觸發回應HTTP 200），確認每3天會自動執行
 - ⏳ Phase 4-6 待做：地圖探索（Leaflet+熱點）、即時回報動態牆+照片上傳+推播、品牌套用
 
 ## 評分公式現況（重要：目前是「方向正確、可運作」的推估係數，不是精雕過的權重）
@@ -34,5 +34,5 @@ npx wrangler pages deploy . --project-name=lightcatcher --branch main --commit-d
 
 ## 更新記錄
 
-- 2026-08-23 v0.2：完成 Phase 3。Supabase專案建好(4表+RLS+Storage bucket)，Email magic-link登入，免費保活workflow寫好待push。
+- 2026-08-23 v0.2：完成 Phase 3。Supabase專案建好(4表+RLS+Storage bucket)，Email magic-link登入，GitHub repo `fullmodel-star/lightcatcher`公開建立並push，免費保活workflow實測手動觸發成功(HTTP 200)。⚠️首次push後GitHub Actions workflow清單一度顯示0筆（索引延遲），多推一次commit後才正常註冊，遇到同樣狀況不用懷疑YAML語法，先試著再push一次。
 - 2026-08-23 v0.1：開案，完成 Phase 0-2（專案骨架、天文計算、氣象評分演算法），Open-Meteo API 欄位實測通過。
