@@ -13,7 +13,9 @@
 - ✅ Phase 4 地圖探索：Leaflet+OSM圖磚（vendor複製自401，不重新下載）；地圖載入`spots`表，即時算每個熱點的機率分數並依分數變色（綠/橘/紅），點圖標彈窗顯示分數+訂閱按鈕（寫入`subscriptions`）；地圖載入後自動`fitBounds`框住全部熱點（實測17筆真實資料後發現固定view會裁掉南北兩端才加的）。`seed.sql`已放17個知名景點（日出/雲海/日落/星空）並實際跑進Supabase，headless瀏覽器實測17個圖標+popup+分數都正確顯示
 - ✅ Phase 5a 即時動態牆：打卡回報表單（選熱點/選現象/選填照片，未登入時隱藏表單只顯示提示）＋照片上傳到`report-photos`bucket＋Supabase Realtime監聽`reports`表INSERT事件即時刷新，不用手動重整；實測未登入狀態、動態牆空狀態、17個熱點下拉選單都正確
 - ✅ Phase 5b Web Push推播：VAPID金鑰已產生（公鑰硬編在前端，私鑰是Edge Function secret不落任何檔案）；Profile頁「啟用推播通知」按鈕訂閱瀏覽器推播並存進`push_subscriptions`表；Edge Function `check-alerts`已部署（複製一份weatherMath評分邏輯，改公式要兩邊同步改），`.github/workflows/push-alerts.yml`每3小時觸發一次；**GitHub Actions手動觸發實測成功**（`{"checked":0,"sent":0}`，因為目前還沒人訂閱熱點，屬正常回應）；同一訂閱6小時內不重複通知
-- ⏳ Phase 6 待做：品牌套用
+- ✅ Phase 6 品牌套用：`ridgeline-branding` skill注入footer（署名/版權/免責聲明，內容針對氣象預測App重寫，非套用英語家族的預設文案）＋PWA安裝按鈕；正式icon已產出（Tabler `sunset-2`重上色`#EEF3F6`+squircle+k2家族色`#A64B38`，簽名帶檢測signature_band_px=0通過），已登記進`05_品牌資源\03_App圖示_正式檔\02_安裝icon_其他家族\_README.md`避免撞圖；手繪佔位`icon.svg`已刪除，manifest改用正式`icon-192.png`/`icon-512.png`；sw升到v3
+
+**402光影獵人 Phase 0-6 全部完成，功能面開發告一段落。** 尚未部署上線（見下方部署章節），也還沒有真人實際操作測試過（GPS定位互動、magic-link登入的實際信箱收信流程、真實推播送達手機）。
 
 ## 評分公式現況（重要：目前是「方向正確、可運作」的推估係數，不是精雕過的權重）
 
@@ -37,5 +39,6 @@ npx wrangler pages deploy . --project-name=lightcatcher --branch main --commit-d
 
 ## 更新記錄
 
+- 2026-08-23 v0.3：完成 Phase 6。套用稜線品牌識別(footer+安裝按鈕)＋正式icon(sunset-2)，Phase 0-6全部完成。
 - 2026-08-23 v0.2：完成 Phase 3。Supabase專案建好(4表+RLS+Storage bucket)，Email magic-link登入，GitHub repo `fullmodel-star/lightcatcher`公開建立並push，免費保活workflow實測手動觸發成功(HTTP 200)。⚠️首次push後GitHub Actions workflow清單一度顯示0筆（索引延遲），多推一次commit後才正常註冊，遇到同樣狀況不用懷疑YAML語法，先試著再push一次。
 - 2026-08-23 v0.1：開案，完成 Phase 0-2（專案骨架、天文計算、氣象評分演算法），Open-Meteo API 欄位實測通過。
