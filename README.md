@@ -10,7 +10,7 @@
 - ✅ Phase 1 天文計算：`suncalc`（vendor 本機化，MIT/BSD授權）算黃金時刻/藍調時刻，Dashboard 倒數計時器
 - ✅ Phase 2 氣象評分：Open-Meteo API（免key）串接，火燒雲指數/雲海指數兩個評分函式；**已實測確認** `temperature_850hPa`／`relativehumidity_850hPa`／`temperature_925hPa`／`relativehumidity_925hPa` 等氣壓層欄位在預設 model 下都存在，PRD 原始欄位名稱可直接使用，不用挑特定 model
 - ✅ Phase 3 後端：Supabase 專案（org `Ridgeline-Lab`，雪梨機房，URL `ejqdyozjpewjwtnqohqd.supabase.co`）建好，4張表+RLS+Storage bucket(`report-photos`)都已建立並實測；`supabaseClient.js` 接好 SDK；Profile 頁做了 Email magic-link 登入/登出，登入時自動 upsert 一筆 `profiles`；GitHub repo `fullmodel-star/lightcatcher`（公開）已建立並push，`.github\workflows\keepalive.yml` 免費保活排程已實測跑過一次（手動觸發回應HTTP 200），確認每3天會自動執行
-- ✅ Phase 4 地圖探索：Leaflet+OSM圖磚（vendor複製自401，不重新下載）；地圖載入`spots`表，即時算每個熱點的機率分數並依分數變色（綠/橘/紅），點圖標彈窗顯示分數+訂閱按鈕（寫入`subscriptions`）。**`spots`表目前是空的**，`seed.sql`準備了6個知名地標當起始資料（阿里山祝山/合歡山主峰/武嶺/象山/貓空/龍磐草原，座標是常見公開地標概略值非逐點驗證），要看到地圖有圖標需要老闆先到SQL Editor跑一次
+- ✅ Phase 4 地圖探索：Leaflet+OSM圖磚（vendor複製自401，不重新下載）；地圖載入`spots`表，即時算每個熱點的機率分數並依分數變色（綠/橘/紅），點圖標彈窗顯示分數+訂閱按鈕（寫入`subscriptions`）；地圖載入後自動`fitBounds`框住全部熱點（實測17筆真實資料後發現固定view會裁掉南北兩端才加的）。`seed.sql`已放17個知名景點（日出/雲海/日落/星空）並實際跑進Supabase，headless瀏覽器實測17個圖標+popup+分數都正確顯示
 - ⏳ Phase 5-6 待做：即時回報動態牆+照片上傳+推播、品牌套用
 
 ## 評分公式現況（重要：目前是「方向正確、可運作」的推估係數，不是精雕過的權重）
