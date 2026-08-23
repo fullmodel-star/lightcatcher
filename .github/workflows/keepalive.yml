@@ -1,4 +1,4 @@
-name: Supabase keepalive
+name: supabase-keepalive
 
 # Supabase免費專案連續7天無API活動會自動暫停，這支workflow每3天
 # ping一次輕量查詢，讓它一直維持在活動狀態。anon key是設計上可公開
