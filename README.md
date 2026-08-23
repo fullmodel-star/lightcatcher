@@ -12,7 +12,7 @@
 - ✅ Phase 3 後端：Supabase 專案（org `Ridgeline-Lab`，雪梨機房，URL `ejqdyozjpewjwtnqohqd.supabase.co`）建好，4張表+RLS+Storage bucket(`report-photos`)都已建立並實測；`supabaseClient.js` 接好 SDK；Profile 頁做了 Email magic-link 登入/登出，登入時自動 upsert 一筆 `profiles`；GitHub repo `fullmodel-star/lightcatcher`（公開）已建立並push，`.github\workflows\keepalive.yml` 免費保活排程已實測跑過一次（手動觸發回應HTTP 200），確認每3天會自動執行
 - ✅ Phase 4 地圖探索：Leaflet+OSM圖磚（vendor複製自401，不重新下載）；地圖載入`spots`表，即時算每個熱點的機率分數並依分數變色（綠/橘/紅），點圖標彈窗顯示分數+訂閱按鈕（寫入`subscriptions`）；地圖載入後自動`fitBounds`框住全部熱點（實測17筆真實資料後發現固定view會裁掉南北兩端才加的）。`seed.sql`已放17個知名景點（日出/雲海/日落/星空）並實際跑進Supabase，headless瀏覽器實測17個圖標+popup+分數都正確顯示
 - ✅ Phase 5a 即時動態牆：打卡回報表單（選熱點/選現象/選填照片，未登入時隱藏表單只顯示提示）＋照片上傳到`report-photos`bucket＋Supabase Realtime監聽`reports`表INSERT事件即時刷新，不用手動重整；實測未登入狀態、動態牆空狀態、17個熱點下拉選單都正確
-- ⏳ Phase 5b 待做：Web Push推播（需要VAPID金鑰+Supabase Edge Function排程，比資料庫操作複雜，需要另外討論怎麼做）
+- ✅ Phase 5b Web Push推播：VAPID金鑰已產生（公鑰硬編在前端，私鑰是Edge Function secret不落任何檔案）；Profile頁「啟用推播通知」按鈕訂閱瀏覽器推播並存進`push_subscriptions`表；Edge Function `check-alerts`已部署（複製一份weatherMath評分邏輯，改公式要兩邊同步改），`.github/workflows/push-alerts.yml`每3小時觸發一次；**GitHub Actions手動觸發實測成功**（`{"checked":0,"sent":0}`，因為目前還沒人訂閱熱點，屬正常回應）；同一訂閱6小時內不重複通知
 - ⏳ Phase 6 待做：品牌套用
 
 ## 評分公式現況（重要：目前是「方向正確、可運作」的推估係數，不是精雕過的權重）
