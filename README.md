@@ -9,7 +9,15 @@
 - ✅ Phase 0 專案骨架：`index.html`/`manifest.json`/`sw.js`/`weatherMath.js`
 - ✅ Phase 1 天文計算：`suncalc`（vendor 本機化，MIT/BSD授權）算黃金時刻/藍調時刻，Dashboard 倒數計時器
 - ✅ Phase 2 氣象評分：Open-Meteo API（免key）串接，火燒雲指數/雲海指數兩個評分函式；**已實測確認** `temperature_850hPa`／`relativehumidity_850hPa`／`temperature_925hPa`／`relativehumidity_925hPa` 等氣壓層欄位在預設 model 下都存在，PRD 原始欄位名稱可直接使用，不用挑特定 model
-- ⏳ Phase 3 待做：Supabase 後端（老闆需自行申請免費帳號）+ 免費保活排程（GitHub Actions 每3天ping一次，防閒置7天自動暫停）
+- ⏳ Phase 3 待做：Supabase 後端（老闆需自行申請免費帳號）+ 免費保活排程（GitHub Actions 每3天ping一次，防閒置7天自動暫停）。資料庫骨架已寫好在 `schema.sql`（含RLS，PRD原始SQL沒加，沒加的話任何人都能改別人的訂閱資料）
+
+## Phase 3 需要老闆做的事（AI 無法代勞）
+
+1. 到 [supabase.com](https://supabase.com) 免費註冊、建一個新專案（選離台灣近的region，如Singapore）
+2. 專案建好後，進左側選單 **SQL Editor**，貼上 `schema.sql` 整段內容執行一次
+3. 進 **Storage**，手動建一個 bucket 叫 `report-photos`，設定public read
+4. 進 **Project Settings → API**，複製兩個值給我：**Project URL** 跟 **anon public key**（⚠️不要給我 `service_role` 那把「secret」金鑰，那把是後台專用、一旦外流任何人都能繞過RLS改光全部資料）
+5. 之後把這兩個值交給我，我會接進 `index.html` 並開始 Phase 3 剩下的部分（訂閱/回報功能）＋設定免費保活排程
 - ⏳ Phase 4-6 待做：地圖探索、即時回報+推播、品牌套用
 
 ## 評分公式現況（重要：目前是「方向正確、可運作」的推估係數，不是精雕過的權重）
