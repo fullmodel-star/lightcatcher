@@ -60,5 +60,27 @@ function check(name, cond) {
   check('[4] seaOfClouds邊界值非NaN', !Number.isNaN(edge2.score));
 }
 
+// [5] 觀星指數：晴空高分、滿天雲低分，且都落在0-100
+{
+  const good = WM.starsScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 40 });
+  const bad = WM.starsScore({ cloudLow: 100, cloudMid: 100, cloudHigh: 100, humidity: 95 });
+  check('[5] 晴空高分', good.score > 70);
+  check('[5] 滿天雲低分', bad.score < 20);
+  check('[5] good.score 落在0-100', good.score >= 0 && good.score <= 100);
+  check('[5] bad.score 落在0-100', bad.score >= 0 && bad.score <= 100);
+}
+
+// [6] 雲海高度估算(LCL)：氣溫露點差越大，雲底越高；差為0時應為0(飽和/貼地霧)
+{
+  const dry = WM.lclHeightAGL(25, 10); // 差15度
+  const saturated = WM.lclHeightAGL(20, 20); // 差0度
+  check('[6] 乾燥時雲底高於飽和時', dry > saturated);
+  check('[6] 飽和時雲底為0', saturated === 0);
+  check('[6] 125倍公式正確', dry === 125 * 15);
+
+  const amsl = WM.cloudBaseAMSL({ surfaceTemp: 25, dewpoint: 15 }, 500);
+  check('[6] AMSL = 地面高程 + AGL', amsl.amslM === 500 + amsl.aglM);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

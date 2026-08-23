@@ -31,11 +31,19 @@
   input[type=number]{width:110px;padding:8px;border:1px solid var(--line);border-radius:8px}
   .countdown{font-size:32px;font-weight:700;letter-spacing:1px;margin:6px 0}
   .countdown-label{font-size:13px;color:var(--steel)}
-  .rings{display:flex;gap:20px;justify-content:center;margin-top:10px}
-  .ring-wrap{text-align:center}
-  .ring-label{font-size:12px;color:var(--steel);margin-top:6px}
-  .ring-alert{color:var(--k2);font-weight:600}
+  .ring-alert{color:var(--k2);font-weight:600;margin-top:8px}
   .muted{color:var(--steel);font-size:13px}
+  .chip{background:var(--snow);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer}
+  .chip.active{background:var(--k2);color:#fff;border-color:var(--k2)}
+  .score-card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
+  .score-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .score-icon{font-size:20px}
+  .score-title{flex:1;font-weight:600;font-size:14px}
+  .score-num{font-size:22px;font-weight:800}
+  .factor-row{margin-bottom:7px}
+  .factor-label{display:flex;justify-content:space-between;font-size:12px;color:var(--steel);margin-bottom:3px}
+  .factor-bar{height:6px;background:var(--snow);border-radius:999px;overflow:hidden}
+  .factor-bar > div{height:100%;border-radius:999px}
   .placeholder{padding:40px 16px;text-align:center;color:var(--steel)}
   .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;padding:12px 16px;align-items:center;justify-content:space-between;font-size:13px}
   .update-bar button{padding:6px 12px;font-size:13px}
@@ -45,12 +53,6 @@
   .legend{display:flex;gap:14px;font-size:12px;color:var(--steel);margin-top:8px;flex-wrap:wrap}
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-  .popup-btn{margin-top:6px;padding:6px 10px;font-size:12px}
-  .feed-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-  .feed-item:last-child{border-bottom:none}
-  .feed-item img{width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0}
-  .feed-item .meta{font-size:12px;color:var(--steel)}
-  .feed-item .title{font-weight:600;font-size:14px}
   .fc-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
   .fc-row:last-child{border-bottom:none}
   .fc-day{font-weight:600;font-size:14px;width:70px}
@@ -68,8 +70,7 @@
 <nav id="nav">
   <a href="#dashboard" data-view="dashboard">首頁</a>
   <a href="#map" data-view="map">地圖探索</a>
-  <a href="#radar" data-view="radar">即時動態</a>
-  <a href="#profile" data-view="profile">設定</a>
+  <a href="#about" data-view="about">預測說明</a>
 </nav>
 
 <main>
@@ -85,6 +86,8 @@
         <input type="number" id="manualLng" placeholder="經度" step="0.0001">
         <button class="secondary" id="btnManual">手動設定</button>
       </div>
+      <p class="muted" style="margin:10px 0 6px">或直接選知名景點：</p>
+      <div class="row" id="spotChips"><span class="muted">載入景點中…</span></div>
     </div>
 
     <div class="card">
@@ -94,37 +97,17 @@
     </div>
 
     <div class="card">
-      <h2>今日機率預測</h2>
+      <h2>機率預測</h2>
       <div class="row">
         <button id="btnWeather" disabled>抓取氣象預測</button>
         <span class="muted" id="weatherStatus"></span>
       </div>
-      <div class="rings" id="rings" style="display:none">
-        <div class="ring-wrap">
-          <svg width="90" height="90" viewBox="0 0 90 90">
-            <circle cx="45" cy="45" r="38" fill="none" stroke="var(--line)" stroke-width="9"/>
-            <circle id="ringGlow" cx="45" cy="45" r="38" fill="none" stroke="var(--k2)" stroke-width="9"
-              stroke-dasharray="238.76" stroke-dashoffset="238.76" transform="rotate(-90 45 45)" stroke-linecap="round"/>
-            <text id="ringGlowText" x="45" y="50" text-anchor="middle" font-size="18" font-weight="700">0</text>
-          </svg>
-          <div class="ring-label">火燒雲指數</div>
-        </div>
-        <div class="ring-wrap">
-          <svg width="90" height="90" viewBox="0 0 90 90">
-            <circle cx="45" cy="45" r="38" fill="none" stroke="var(--line)" stroke-width="9"/>
-            <circle id="ringSea" cx="45" cy="45" r="38" fill="none" stroke="var(--steel)" stroke-width="9"
-              stroke-dasharray="238.76" stroke-dashoffset="238.76" transform="rotate(-90 45 45)" stroke-linecap="round"/>
-            <text id="ringSeaText" x="45" y="50" text-anchor="middle" font-size="18" font-weight="700">0</text>
-          </svg>
-          <div class="ring-label">雲海指數</div>
-        </div>
-      </div>
-      <div id="weatherAlert" class="ring-alert" style="margin-top:10px"></div>
+      <div id="scoreCards"></div>
     </div>
 
     <div class="card">
       <h2>未來三日預測（傍晚黃金時刻）</h2>
-      <div id="forecast3" class="muted">先抓取上方今日機率後才會一起算出來</div>
+      <div id="forecast3" class="muted">先抓取上方機率預測後才會一起算出來</div>
     </div>
   </section>
 
@@ -141,59 +124,34 @@
     </div>
   </section>
 
-  <section data-view="radar">
-    <div class="card" id="reportFormCard">
-      <h2>打卡回報</h2>
-      <p class="muted" id="reportLoginHint" style="display:none">請先到「設定」分頁登入才能回報。</p>
-      <div id="reportFormBody">
-        <div class="row" style="margin-top:8px">
-          <select id="reportSpot" style="flex:1;min-width:160px;padding:8px;border:1px solid var(--line);border-radius:8px">
-            <option value="">選擇熱點…</option>
-          </select>
-          <select id="reportPhenomenon" style="padding:8px;border:1px solid var(--line);border-radius:8px">
-            <option value="fiery_glow">🔥 火燒雲</option>
-            <option value="sea_of_clouds">☁️ 雲海</option>
-            <option value="clear_sky">☀️ 晴空</option>
-          </select>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <input type="file" id="reportPhoto" accept="image/*">
-        </div>
-        <div class="row" style="margin-top:10px">
-          <button id="btnSubmitReport">送出回報</button>
-          <span class="muted" id="reportStatus"></span>
-        </div>
-      </div>
-    </div>
-
+  <section data-view="about">
     <div class="card">
-      <h2>即時動態牆</h2>
-      <div id="reportFeed"><p class="muted">載入中…</p></div>
-    </div>
-  </section>
-
-  <section data-view="profile">
-    <div class="card" id="authLoggedOut">
-      <h2>登入</h2>
-      <p class="muted">用Email收登入連結，不用記密碼。訂閱熱點/回報大景都需要先登入。</p>
-      <div class="row">
-        <input type="email" id="authEmail" placeholder="you@example.com" style="flex:1;min-width:180px;padding:8px;border:1px solid var(--line);border-radius:8px">
-        <button id="btnSendLink">寄送登入連結</button>
-      </div>
-      <p class="muted" id="authStatus" style="margin-top:8px"></p>
-    </div>
-    <div class="card" id="authLoggedIn" style="display:none">
-      <h2>帳號</h2>
-      <p id="authEmailDisplay"></p>
-      <button class="secondary" id="btnLogout">登出</button>
+      <h2>🔥 火燒雲指數（日出／日落）</h2>
+      <p class="muted">看的是「有沒有雲能反射夕陽的紅光」，不是雲越少越好：</p>
+      <ul class="muted" style="padding-left:18px;margin:6px 0">
+        <li><b>低雲量 35%</b>：低雲會直接擋住地平線的陽光，&lt;10%最佳，&gt;30%大幅扣分</li>
+        <li><b>中高雲量 35%</b>：40~70%最佳——太陽光從低角度照到這層雲的底部反射出來，才是「燒」起來的紅光；完全無雲或滿天雲都拍不到</li>
+        <li><b>濕度 15%</b>：空氣越乾越通透，色彩越飽和</li>
+        <li><b>能見度 15%</b>：&gt;15km加分，霧霾會讓顏色混濁</li>
+      </ul>
     </div>
     <div class="card">
-      <h2>推播通知</h2>
-      <p class="muted">開啟後，訂閱的熱點機率超過門檻(預設75分)時會推播提醒。iPhone需先把這個網頁「加入主畫面」才能收到推播。</p>
-      <div class="row" style="margin-top:8px">
-        <button id="btnEnablePush">🔔 啟用推播通知</button>
-        <span class="muted" id="pushStatus"></span>
-      </div>
+      <h2>☁️ 雲海指數＋雲海高度</h2>
+      <p class="muted">雲海需要「逆溫」——高空比地面暖，把水氣蓋在低處變成一層雲：</p>
+      <ul class="muted" style="padding-left:18px;margin:6px 0">
+        <li><b>逆溫強度 50%</b>：比較地面氣溫與高空(925hPa，約海拔700-800m處)氣溫，高空越暖分數越高</li>
+        <li><b>高空濕度 25%</b>：夠濕才有雲可以形成</li>
+        <li><b>地表風速 25%</b>：≤2m/s最佳，風太大雲海會被吹散</li>
+      </ul>
+      <p class="muted"><b>雲海高度</b>是額外估算：用氣象學經典的「凝結高度」公式——<code>雲底高度(公尺) ≈ 125 × (地面氣溫 − 露點溫度)</code>（Espy's equation）反推雲層大概在哪個海拔，藉此判斷你所在的觀景點是在雲層之上還是之下。這是理論估算不是實測，僅供參考。</p>
+    </div>
+    <div class="card">
+      <h2>✨ 觀星指數</h2>
+      <p class="muted">總雲量(70%，越少越好)＋濕度代表的霾害程度(30%)。這個指數目前<b>不考慮光害</b>，市區觀星實際感受會比分數差很多。</p>
+    </div>
+    <div class="card">
+      <h2>誠實聲明</h2>
+      <p class="muted">氣象資料全部來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API。上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</p>
     </div>
   </section>
 </main>
@@ -239,23 +197,13 @@
     const data = await window.WeatherMath.fetchHourlyWeather(spot.lat, spot.lng);
     const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
     const h = window.WeatherMath.hourAt(data.hourly, idx);
-    if (spot.type === 'sea_of_clouds') return window.WeatherMath.seaOfCloudsScore(h).score;
+    let result;
+    if (spot.type === 'sea_of_clouds') result = window.WeatherMath.seaOfCloudsScore(h);
     // sunset/sunrise都是晨昏「火燒雲」光學現象，用同一個評分公式
-    if (spot.type === 'sunset' || spot.type === 'sunrise') return window.WeatherMath.fieryGlowScore(h).score;
-    // 'stars'：PRD沒給觀星評分公式，先用低雲量當粗略代理指標（雲越少越適合觀星）
-    return Math.round(100 - h.cloudLow);
+    else if (spot.type === 'sunset' || spot.type === 'sunrise') result = window.WeatherMath.fieryGlowScore(h);
+    else result = window.WeatherMath.starsScore(h);
+    return { result, h };
   }
-
-  window.subscribeSpot = async function (spotId) {
-    const { data: { session } } = await window.SB.auth.getSession();
-    if (!session) { alert('請先到「設定」分頁登入才能訂閱'); return; }
-    const { error } = await window.SB.from('subscriptions').upsert({
-      user_id: session.user.id,
-      spot_id: spotId,
-      notify_threshold: 75
-    }, { onConflict: 'user_id,spot_id' });
-    alert(error ? '訂閱失敗：' + error.message : '訂閱成功！');
-  };
 
   async function initMapIfNeeded() {
     if (mapInited) return;
@@ -277,18 +225,23 @@
     const markers = [];
     let done = 0;
     await Promise.all(spots.map(async (spot) => {
-      let score = null;
-      try { score = await scoreForSpot(spot); } catch (e) { /* 單一熱點失敗不擋其他熱點 */ }
+      let scored = null;
+      try { scored = await scoreForSpot(spot); } catch (e) { /* 單一熱點失敗不擋其他熱點 */ }
+      const score = scored ? scored.result.score : null;
       const color = score === null ? '#BECBD5' : scoreColor(score);
       const marker = L.circleMarker([spot.lat, spot.lng], {
         radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9
       }).addTo(leafletMap);
       const scoreText = score === null ? '無法計算' : `${score}分`;
+      let extra = '';
+      if (scored && spot.type === 'sea_of_clouds') {
+        const cb = window.WeatherMath.cloudBaseAMSL(scored.h, spot.min_elevation || 0);
+        extra = `<br>雲海高度估計：約${cb.amslM}m（此機位${cb.amslM <= spot.min_elevation ? '在雲層之上✅' : '可能在雲層之下'}）`;
+      }
       marker.bindPopup(
         `<strong>${spot.name}</strong><br>` +
         `類型：${typeLabels[spot.type] || spot.type}　海拔：${spot.min_elevation}m<br>` +
-        `今日機率：${scoreText}<br>` +
-        `<button class="popup-btn" onclick="subscribeSpot('${spot.id}')">🔔 訂閱這個熱點</button>`
+        `今日機率：${scoreText}${extra}`
       );
       markers.push(marker);
       done++;
@@ -307,6 +260,11 @@
 
   // ---- 定位 ----
   let coords = null;
+  let selectedSpot = null;
+
+  function clearChipSelection() {
+    document.querySelectorAll('#spotChips .chip').forEach((b) => b.classList.remove('active'));
+  }
 
   function setCoords(lat, lng, source) {
     coords = { lat, lng };
@@ -322,7 +280,7 @@
     }
     document.getElementById('locStatus').textContent = '定位中…';
     navigator.geolocation.getCurrentPosition(
-      (pos) => setCoords(pos.coords.latitude, pos.coords.longitude, 'GPS'),
+      (pos) => { selectedSpot = null; clearChipSelection(); setCoords(pos.coords.latitude, pos.coords.longitude, 'GPS'); },
       () => { document.getElementById('locStatus').textContent = '定位失敗，請手動輸入經緯度'; }
     );
   });
@@ -331,8 +289,34 @@
     const lat = parseFloat(document.getElementById('manualLat').value);
     const lng = parseFloat(document.getElementById('manualLng').value);
     if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+    selectedSpot = null;
+    clearChipSelection();
     setCoords(lat, lng, '手動輸入');
   });
+
+  // ---- 知名景點快選 ----
+  async function loadSpotChips() {
+    const container = document.getElementById('spotChips');
+    const { data: spots, error } = await window.SB.from('spots').select('*').order('name');
+    if (error) { container.innerHTML = `<span class="muted">景點載入失敗：${error.message}</span>`; return; }
+    if (!spots || !spots.length) { container.innerHTML = '<span class="muted">目前尚無景點資料</span>'; return; }
+    const typeIcon = { sunrise: '🌅', sunset: '🌇', sea_of_clouds: '☁️', stars: '✨' };
+    container.innerHTML = spots.map((s) =>
+      `<button type="button" class="chip" data-id="${s.id}">${typeIcon[s.type] || ''} ${s.name}</button>`
+    ).join('');
+    container.querySelectorAll('.chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const spot = spots.find((s) => s.id === btn.dataset.id);
+        if (!spot) return;
+        selectedSpot = spot;
+        clearChipSelection();
+        btn.classList.add('active');
+        setCoords(spot.lat, spot.lng, spot.name);
+        document.getElementById('btnWeather').click();
+      });
+    });
+  }
+  loadSpotChips();
 
   // ---- 黃金/藍調時刻倒數 ----
   let countdownTimer = null;
@@ -380,15 +364,81 @@
     countdownTimer = setInterval(tick, 1000);
   }
 
-  // ---- 氣象評分 ----
-  function setRing(id, textId, score) {
-    const circumference = 238.76;
-    const el = document.getElementById(id);
-    el.setAttribute('stroke-dashoffset', String(circumference * (1 - score / 100)));
-    document.getElementById(textId).textContent = score;
+  // ---- 氣象評分（分開呈現各指數，附因子拆解，不用黑箱環形圖） ----
+  function factorBar(label, valueLabel, score) {
+    return `<div class="factor-row">
+      <div class="factor-label"><span>${label}</span><span>${valueLabel}</span></div>
+      <div class="factor-bar"><div style="width:${Math.max(0, Math.min(100, score))}%;background:${scoreColor(score)}"></div></div>
+    </div>`;
   }
 
-  function renderForecast3(data, lat, lng) {
+  function renderGlowCard(glow, title) {
+    const b = glow.breakdown;
+    return `<div class="score-card">
+      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><span class="score-num" style="color:${scoreColor(glow.score)}">${glow.score}</span></div>
+      <div class="score-factors">
+        ${factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score)}
+        ${factorBar('中高雲量(40-70%最佳)', b.midHighCloud.value + '%', b.midHighCloud.score)}
+        ${factorBar('濕度(越低越通透)', b.humidity.value + '%', b.humidity.score)}
+        ${factorBar('能見度', Math.round(b.visibility.value / 1000) + 'km', b.visibility.score)}
+      </div>
+      ${glow.alert ? '<div class="ring-alert">🔥 大景預警</div>' : ''}
+    </div>`;
+  }
+
+  function renderSeaCard(sea, h, groundElevationM) {
+    const b = sea.breakdown;
+    const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
+    let heightNote = `雲海高度估計約 <b>${cb.amslM}m</b>（海拔，理論估算非實測）`;
+    if (selectedSpot && Number.isFinite(selectedSpot.min_elevation)) {
+      const diff = selectedSpot.min_elevation - cb.amslM;
+      heightNote += diff > 100 ? `。你選的機位（${selectedSpot.min_elevation}m）在雲層之上，適合拍攝 ✅`
+        : diff < -100 ? `。你選的機位（${selectedSpot.min_elevation}m）可能在雲層之下，看不到雲海`
+        : `。你選的機位（${selectedSpot.min_elevation}m）接近雲層高度，可能置身雲霧中`;
+    }
+    return `<div class="score-card">
+      <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><span class="score-num" style="color:${scoreColor(sea.score)}">${sea.score}</span></div>
+      <div class="score-factors">
+        ${factorBar('逆溫強度(高空較暖越好)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
+        ${factorBar('高空濕度', Math.round(b.upperHumidity.value) + '%', b.upperHumidity.score)}
+        ${factorBar('地表風速(靜穩最佳)', b.windSpeed.value.toFixed(1) + 'm/s', b.windSpeed.score)}
+      </div>
+      <p class="muted" style="margin:8px 0 0">${heightNote}</p>
+      ${sea.alert ? '<div class="ring-alert">☁️ 大景預警</div>' : ''}
+    </div>`;
+  }
+
+  function renderStarsCard(stars) {
+    const b = stars.breakdown;
+    return `<div class="score-card">
+      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><span class="score-num" style="color:${scoreColor(stars.score)}">${stars.score}</span></div>
+      <div class="score-factors">
+        ${factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score)}
+        ${factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score)}
+      </div>
+    </div>`;
+  }
+
+  function renderScoreCards(h, groundElevationM) {
+    const container = document.getElementById('scoreCards');
+    if (selectedSpot) {
+      if (selectedSpot.type === 'sea_of_clouds') {
+        container.innerHTML = renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM);
+      } else if (selectedSpot.type === 'sunrise' || selectedSpot.type === 'sunset') {
+        const title = (selectedSpot.type === 'sunrise' ? '日出' : '日落') + '火燒雲指數';
+        container.innerHTML = renderGlowCard(window.WeatherMath.fieryGlowScore(h), title);
+      } else {
+        container.innerHTML = renderStarsCard(window.WeatherMath.starsScore(h));
+      }
+    } else {
+      container.innerHTML =
+        renderGlowCard(window.WeatherMath.fieryGlowScore(h), '火燒雲指數') +
+        renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM) +
+        renderStarsCard(window.WeatherMath.starsScore(h));
+    }
+  }
+
+  function renderForecast3(data, lat, lng, groundElevationM) {
     const container = document.getElementById('forecast3');
     const dayLabels = ['明天', '後天', '大後天'];
     const now = new Date();
@@ -411,14 +461,23 @@
         continue;
       }
       const h = window.WeatherMath.hourAt(data.hourly, idx);
-      const glow = window.WeatherMath.fieryGlowScore(h);
-      const sea = window.WeatherMath.seaOfCloudsScore(h);
+      const badges = [];
+      const type = selectedSpot && selectedSpot.type;
+      if (!type || type === 'sunrise' || type === 'sunset') {
+        const glow = window.WeatherMath.fieryGlowScore(h);
+        badges.push(`<span class="fc-badge" style="background:${scoreColor(glow.score)}">🔥 ${glow.score}</span>`);
+      }
+      if (!type || type === 'sea_of_clouds') {
+        const sea = window.WeatherMath.seaOfCloudsScore(h);
+        badges.push(`<span class="fc-badge" style="background:${scoreColor(sea.score)}">☁️ ${sea.score}</span>`);
+      }
+      if (!type || type === 'stars') {
+        const stars = window.WeatherMath.starsScore(h);
+        badges.push(`<span class="fc-badge" style="background:${scoreColor(stars.score)}">✨ ${stars.score}</span>`);
+      }
       rows.push(`<div class="fc-row">
         <div class="fc-day">${dayLabels[i]}</div>
-        <div class="fc-scores">
-          <span class="fc-badge" style="background:${scoreColor(glow.score)}">🔥 ${glow.score}</span>
-          <span class="fc-badge" style="background:${scoreColor(sea.score)}">☁️ ${sea.score}</span>
-        </div>
+        <div class="fc-scores">${badges.join('')}</div>
       </div>`);
     }
     container.innerHTML = rows.join('');
@@ -432,198 +491,14 @@
       const data = await window.WeatherMath.fetchHourlyWeather(coords.lat, coords.lng);
       const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
       const h = window.WeatherMath.hourAt(data.hourly, idx);
-      const glow = window.WeatherMath.fieryGlowScore(h);
-      const sea = window.WeatherMath.seaOfCloudsScore(h);
+      const groundElevationM = (selectedSpot && selectedSpot.min_elevation) || data.elevation || 0;
 
-      setRing('ringGlow', 'ringGlowText', glow.score);
-      setRing('ringSea', 'ringSeaText', sea.score);
-      document.getElementById('rings').style.display = 'flex';
-
-      const alerts = [];
-      if (glow.alert) alerts.push('🔥 火燒雲大景預警');
-      if (sea.alert) alerts.push('☁️ 雲海大景預警');
-      document.getElementById('weatherAlert').textContent = alerts.join('　');
+      renderScoreCards(h, groundElevationM);
       statusEl.textContent = `已更新（${data.hourly.time[idx]}）`;
 
-      renderForecast3(data, coords.lat, coords.lng);
+      renderForecast3(data, coords.lat, coords.lng, groundElevationM);
     } catch (err) {
       statusEl.textContent = '抓取失敗：' + err.message;
-    }
-  });
-
-  // ---- 帳號登入（Supabase Email magic link） ----
-  function renderAuthUI(session) {
-    const loggedOut = document.getElementById('authLoggedOut');
-    const loggedIn = document.getElementById('authLoggedIn');
-    if (session) {
-      loggedOut.style.display = 'none';
-      loggedIn.style.display = 'block';
-      document.getElementById('authEmailDisplay').textContent = session.user.email;
-    } else {
-      loggedOut.style.display = 'block';
-      loggedIn.style.display = 'none';
-    }
-    document.getElementById('reportFormBody').style.display = session ? 'block' : 'none';
-    document.getElementById('reportLoginHint').style.display = session ? 'none' : 'block';
-  }
-
-  window.SB.auth.getSession().then(({ data }) => renderAuthUI(data.session));
-
-  window.SB.auth.onAuthStateChange((event, session) => {
-    renderAuthUI(session);
-    if (event === 'SIGNED_IN' && session) {
-      window.SB.from('profiles').upsert({
-        id: session.user.id,
-        username: session.user.email.split('@')[0]
-      }).then(({ error }) => { if (error) console.error('建立profile失敗', error); });
-    }
-  });
-
-  document.getElementById('btnSendLink').addEventListener('click', async () => {
-    const email = document.getElementById('authEmail').value.trim();
-    const statusEl = document.getElementById('authStatus');
-    if (!email) return;
-    statusEl.textContent = '寄送中…';
-    const { error } = await window.SB.auth.signInWithOtp({ email });
-    statusEl.textContent = error ? '寄送失敗：' + error.message : '登入連結已寄出，請檢查信箱';
-  });
-
-  document.getElementById('btnLogout').addEventListener('click', () => {
-    window.SB.auth.signOut();
-  });
-
-  // ---- 即時動態牆 ----
-  const phenomenonLabels = { fiery_glow: '🔥 火燒雲', sea_of_clouds: '☁️ 雲海', clear_sky: '☀️ 晴空' };
-  let radarInited = false;
-
-  function timeAgo(iso) {
-    const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-    if (diffMin < 1) return '剛剛';
-    if (diffMin < 60) return `${diffMin}分鐘前`;
-    const diffH = Math.round(diffMin / 60);
-    if (diffH < 24) return `${diffH}小時前`;
-    return `${Math.round(diffH / 24)}天前`;
-  }
-
-  function renderFeedItem(r) {
-    const spotName = (r.spots && r.spots.name) || '未知熱點';
-    const username = (r.profiles && r.profiles.username) || '匿名';
-    const photoHtml = r.image_url ? `<img src="${r.image_url}" alt="">` : '';
-    return `<div class="feed-item">
-      ${photoHtml}
-      <div>
-        <div class="title">${phenomenonLabels[r.phenomenon] || r.phenomenon}　${spotName}</div>
-        <div class="meta">${username}　${timeAgo(r.reported_at)}</div>
-      </div>
-    </div>`;
-  }
-
-  async function loadFeed() {
-    const feedEl = document.getElementById('reportFeed');
-    const { data, error } = await window.SB
-      .from('reports')
-      .select('*, spots(name), profiles(username)')
-      .order('reported_at', { ascending: false })
-      .limit(20);
-    if (error) { feedEl.innerHTML = `<p class="muted">載入失敗：${error.message}</p>`; return; }
-    feedEl.innerHTML = data.length
-      ? data.map(renderFeedItem).join('')
-      : '<p class="muted">還沒有人回報，當第一個吧！</p>';
-  }
-
-  async function populateSpotSelect() {
-    const sel = document.getElementById('reportSpot');
-    const { data: spots } = await window.SB.from('spots').select('id,name').order('name');
-    (spots || []).forEach((s) => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.name;
-      sel.appendChild(opt);
-    });
-  }
-
-  function initRadarIfNeeded() {
-    if (radarInited) return;
-    radarInited = true;
-    populateSpotSelect();
-    loadFeed();
-
-    window.SB.channel('reports-feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => loadFeed())
-      .subscribe();
-  }
-
-  window.addEventListener('hashchange', () => {
-    if (location.hash === '#radar') initRadarIfNeeded();
-  });
-  if (location.hash === '#radar') initRadarIfNeeded();
-
-  document.getElementById('btnSubmitReport').addEventListener('click', async () => {
-    const statusEl = document.getElementById('reportStatus');
-    const { data: { session } } = await window.SB.auth.getSession();
-    if (!session) { statusEl.textContent = '請先登入'; return; }
-
-    const spotId = document.getElementById('reportSpot').value;
-    if (!spotId) { statusEl.textContent = '請選擇熱點'; return; }
-    const phenomenon = document.getElementById('reportPhenomenon').value;
-    const file = document.getElementById('reportPhoto').files[0];
-
-    statusEl.textContent = '送出中…';
-    let imageUrl = null;
-    if (file) {
-      const path = `${session.user.id}/${Date.now()}-${file.name}`;
-      const { error: upErr } = await window.SB.storage.from('report-photos').upload(path, file);
-      if (upErr) { statusEl.textContent = '照片上傳失敗：' + upErr.message; return; }
-      imageUrl = window.SB.storage.from('report-photos').getPublicUrl(path).data.publicUrl;
-    }
-
-    const { error } = await window.SB.from('reports').insert({
-      spot_id: spotId,
-      user_id: session.user.id,
-      phenomenon,
-      image_url: imageUrl
-    });
-    statusEl.textContent = error ? '回報失敗：' + error.message : '回報成功！';
-    if (!error) document.getElementById('reportPhoto').value = '';
-  });
-
-  // ---- 推播通知 ----
-  const VAPID_PUBLIC_KEY = 'BFwjEVxr-JwCHggWVn6yN6GsLi75fGl2OrKctVk_QRUPyboJ1R8VVzCt7310cA_PUFqKaZpPwpoOGNRchmM118o';
-
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = atob(base64);
-    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
-  }
-
-  document.getElementById('btnEnablePush').addEventListener('click', async () => {
-    const statusEl = document.getElementById('pushStatus');
-    const { data: { session } } = await window.SB.auth.getSession();
-    if (!session) { statusEl.textContent = '請先登入'; return; }
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      statusEl.textContent = '此瀏覽器不支援推播'; return;
-    }
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { statusEl.textContent = '未取得推播權限'; return; }
-
-    statusEl.textContent = '啟用中…';
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
-      const j = sub.toJSON();
-      const { error } = await window.SB.from('push_subscriptions').upsert({
-        user_id: session.user.id,
-        endpoint: j.endpoint,
-        p256dh: j.keys.p256dh,
-        auth: j.keys.auth
-      }, { onConflict: 'endpoint' });
-      statusEl.textContent = error ? '啟用失敗：' + error.message : '推播已啟用！';
-    } catch (err) {
-      statusEl.textContent = '啟用失敗：' + err.message;
     }
   });
 

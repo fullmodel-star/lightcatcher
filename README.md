@@ -1,21 +1,29 @@
 # 402 光影獵人 LightCatcher
 
-自然光影捕捉管家：黃金時刻/藍調時刻倒數、火燒雲爆發指數、雲海機率指數，攝影社群即時回報。山脈家族（k2, `#A64B38`）第三支，PWA 架構仿 400 走稜步道（單檔 hash 路由），非 401 登山管理平台的多頁+view模組架構——這支只有4個畫面（Dashboard/Explore Map/Live Radar/Profile），沒有401那種11頁規模才需要的中繼複雜度。
+自然光影捕捉管家：黃金時刻/藍調時刻倒數、火燒雲指數、雲海指數＋雲海高度估算、觀星指數。山脈家族（k2, `#A64B38`）第三支，PWA 架構仿 400 走稜步道（單檔 hash 路由）。
 
-原始需求：React Native+Expo+Supabase PRD，討論後改走純PWA（跟山脈家族其他App技術棧一致、Windows不用裝Xcode/Android Studio）。規劃全文見 `_docs\_開案規劃_20260823.md`。
+原始需求：React Native+Expo+Supabase PRD，討論後改走純PWA。**2026-08-24 產品方向大幅簡化**（老闆實測後回饋）：拿掉Email登入/訂閱熱點/推播通知/打卡回報整套機制，全站改成完全開放瀏覽不用帳號；改成「首頁景點快選＋分開呈現各指數＋因子拆解＋雲海高度估算＋預測方法說明頁」，強調專業感與簡單操作。現在只有3個畫面：首頁/地圖探索/預測說明。
 
-## 現況：v0.2（Phase 0-3 完成）
+## 現況：v0.5（產品方向大改版後）
 
-- ✅ Phase 0 專案骨架：`index.html`/`manifest.json`/`sw.js`/`weatherMath.js`
-- ✅ Phase 1 天文計算：`suncalc`（vendor 本機化，MIT/BSD授權）算黃金時刻/藍調時刻，Dashboard 倒數計時器
-- ✅ Phase 2 氣象評分：Open-Meteo API（免key）串接，火燒雲指數/雲海指數兩個評分函式；**已實測確認** `temperature_850hPa`／`relativehumidity_850hPa`／`temperature_925hPa`／`relativehumidity_925hPa` 等氣壓層欄位在預設 model 下都存在，PRD 原始欄位名稱可直接使用，不用挑特定 model
-- ✅ Phase 3 後端：Supabase 專案（org `Ridgeline-Lab`，雪梨機房，URL `ejqdyozjpewjwtnqohqd.supabase.co`）建好，4張表+RLS+Storage bucket(`report-photos`)都已建立並實測；`supabaseClient.js` 接好 SDK；Profile 頁做了 Email magic-link 登入/登出，登入時自動 upsert 一筆 `profiles`；GitHub repo `fullmodel-star/lightcatcher`（公開）已建立並push，`.github\workflows\keepalive.yml` 免費保活排程已實測跑過一次（手動觸發回應HTTP 200），確認每3天會自動執行
-- ✅ Phase 4 地圖探索：Leaflet+OSM圖磚（vendor複製自401，不重新下載）；地圖載入`spots`表，即時算每個熱點的機率分數並依分數變色（綠/橘/紅），點圖標彈窗顯示分數+訂閱按鈕（寫入`subscriptions`）；地圖載入後自動`fitBounds`框住全部熱點（實測17筆真實資料後發現固定view會裁掉南北兩端才加的）。`seed.sql`已放17個知名景點（日出/雲海/日落/星空）並實際跑進Supabase，headless瀏覽器實測17個圖標+popup+分數都正確顯示
-- ✅ Phase 5a 即時動態牆：打卡回報表單（選熱點/選現象/選填照片，未登入時隱藏表單只顯示提示）＋照片上傳到`report-photos`bucket＋Supabase Realtime監聽`reports`表INSERT事件即時刷新，不用手動重整；實測未登入狀態、動態牆空狀態、17個熱點下拉選單都正確
-- ✅ Phase 5b Web Push推播：VAPID金鑰已產生（公鑰硬編在前端，私鑰是Edge Function secret不落任何檔案）；Profile頁「啟用推播通知」按鈕訂閱瀏覽器推播並存進`push_subscriptions`表；Edge Function `check-alerts`已部署（複製一份weatherMath評分邏輯，改公式要兩邊同步改），`.github/workflows/push-alerts.yml`每3小時觸發一次；**GitHub Actions手動觸發實測成功**（`{"checked":0,"sent":0}`，因為目前還沒人訂閱熱點，屬正常回應）；同一訂閱6小時內不重複通知
-- ✅ Phase 6 品牌套用：`ridgeline-branding` skill注入footer（署名/版權/免責聲明，內容針對氣象預測App重寫，非套用英語家族的預設文案）＋PWA安裝按鈕；正式icon已產出（Tabler `sunset-2`重上色`#EEF3F6`+squircle+k2家族色`#A64B38`，簽名帶檢測signature_band_px=0通過），已登記進`05_品牌資源\03_App圖示_正式檔\02_安裝icon_其他家族\_README.md`避免撞圖；手繪佔位`icon.svg`已刪除，manifest改用正式`icon-192.png`/`icon-512.png`；sw升到v3
+**已上線 https://lightcatcher.pages.dev/**，3個畫面：首頁／地圖探索／預測說明。
 
-**402光影獵人 Phase 0-6 全部完成，2026-08-23已上線 https://lightcatcher.pages.dev/**（`node _tools\build-staging.mjs` → wrangler Pages `--branch main`，實測Production環境、sw active、地圖真的抓得到即時機率分數）。**仍未做的驗證**：GPS定位互動、magic-link登入的實際信箱收信流程、真實推播送達手機——這幾項需要真人親自操作，headless測試模擬不了。
+### 目前有的功能
+- 黃金/藍調時刻倒數（`suncalc`本機計算）
+- 首頁景點快選：從Supabase `spots`表載入53個知名景點的快選按鈕，點了自動定位+抓氣象
+- 機率預測**分開呈現**：選了特定景點只顯示該景點對應現象的指數卡（火燒雲/雲海/觀星擇一）；沒選景點(手動座標/GPS)則三張都顯示。每張卡都拆解出實際因子數值+子分數，不是單一黑箱數字
+- **雲海高度估算**：用氣象學經典的LCL公式（`125×(氣溫-露點)`估算凝結高度），換算成海拔後跟景點高程比較，判斷機位在雲層之上/之中/之下
+- 未來三日預測（會依選中景點類型只顯示相關指數）
+- 地圖探索：Leaflet+OSM圖磚，**完全開放瀏覽不用帳號**，53個景點依機率變色，雲海類型景點popup會顯示雲海高度
+- 「預測說明」頁：每個指數的計算邏輯、權重、資料來源，白紙黑字寫清楚建立可信度
+- 稜線品牌footer + PWA安裝按鈕 + 正式icon(`sunset-2`)
+
+### 2026-08-24 拿掉的功能（老闆實測後回饋：越簡單越好，不要帳號門檻）
+Email magic-link登入、訂閱熱點+推播通知(Web Push/VAPID/Edge Function `check-alerts`)、打卡回報+照片上傳+即時動態牆——**整套移除**，不是隱藏。Supabase的`profiles`/`subscriptions`/`push_subscriptions`/`reports`表還在（沒刪，怕未來要用），但前端完全不呼叫；Edge Function與相關GitHub Actions workflow已刪除。`spots`表繼續用（地圖與首頁快選都靠它），這是唯一還在用的後端功能，所以Supabase**還是需要**、免費保活排程(`keepalive.yml`)也還是需要。
+
+### 待確認
+- GPS定位互動、真人實際使用體驗——headless測試模擬不到
+- 評分公式係數仍是方向性估計值，不是驗證過的氣象公式
 
 ## 評分公式現況（重要：目前是「方向正確、可運作」的推估係數，不是精雕過的權重）
 
@@ -37,12 +45,13 @@ npx wrangler pages deploy . --project-name=lightcatcher --branch main --commit-d
 
 `_tools\build-staging.mjs` 排除 `_*`／`.md`／`.sql`／`.py`／`.git`／`.github`／`supabase`／`brand.config.json`，自帶「sw.js ASSETS都在staging」與「無底線路徑外洩」兩道檢查，沒過會`exit 1`。**不要手打glob**。
 
-## 品牌 icon（待Phase 6產出）
+## 品牌 icon
 
-老闆已選定 Tabler `sunset-2`（地平線+半圓落日），家族色 `#A64B38`。**產圖前務必先登記進** `05_品牌資源\03_App圖示_正式檔\02_安裝icon_其他家族\_README.md`，避免撞圖。
+Tabler `sunset-2`（地平線+半圓落日），家族色 `#A64B38`。已登記進 `05_品牌資源\03_App圖示_正式檔\02_安裝icon_其他家族\_README.md` 並產出正式檔（`icon-192.png`/`icon-512.png`），簽名帶檢測通過。
 
 ## 更新記錄
 
+- 2026-08-24 v0.5：**產品方向大改版**——拿掉登入/訂閱/推播/打卡回報整套機制，全站開放瀏覽；機率預測改分開呈現+因子拆解，新增雲海高度估算(LCL公式)、觀星指數、首頁景點快選、預測說明頁；`seed.sql`從17個佔位景點換成53個老闆親自研究的景點（66筆，含多現象拆列），海拔以Open-Meteo API查詢為主、4個點依老闆給的明確數字覆蓋(API山區格點常低估)。
 - 2026-08-23 v0.4：上線 https://lightcatcher.pages.dev/（wrangler Pages，Production/main實測確認）。新增`_tools\build-staging.mjs`。
 - 2026-08-23 v0.3：完成 Phase 6。套用稜線品牌識別(footer+安裝按鈕)＋正式icon(sunset-2)，Phase 0-6全部完成。
 - 2026-08-23 v0.2：完成 Phase 3。Supabase專案建好(4表+RLS+Storage bucket)，Email magic-link登入，GitHub repo `fullmodel-star/lightcatcher`公開建立並push，免費保活workflow實測手動觸發成功(HTTP 200)。⚠️首次push後GitHub Actions workflow清單一度顯示0筆（索引延遲），多推一次commit後才正常註冊，遇到同樣狀況不用懷疑YAML語法，先試著再push一次。
