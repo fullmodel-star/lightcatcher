@@ -197,7 +197,8 @@
     const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
     const h = window.WeatherMath.hourAt(data.hourly, idx);
     if (spot.type === 'sea_of_clouds') return window.WeatherMath.seaOfCloudsScore(h).score;
-    if (spot.type === 'sunset') return window.WeatherMath.fieryGlowScore(h).score;
+    // sunset/sunrise都是晨昏「火燒雲」光學現象，用同一個評分公式
+    if (spot.type === 'sunset' || spot.type === 'sunrise') return window.WeatherMath.fieryGlowScore(h).score;
     // 'stars'：PRD沒給觀星評分公式，先用低雲量當粗略代理指標（雲越少越適合觀星）
     return Math.round(100 - h.cloudLow);
   }
@@ -237,10 +238,11 @@
       const marker = L.circleMarker([spot.lat, spot.lng], {
         radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9
       }).addTo(leafletMap);
+      const typeLabels = { sunrise: '日出', sunset: '日落', sea_of_clouds: '雲海', stars: '星空' };
       const scoreText = score === null ? '無法計算' : `${score}分`;
       marker.bindPopup(
         `<strong>${spot.name}</strong><br>` +
-        `類型：${spot.type}　海拔：${spot.min_elevation}m<br>` +
+        `類型：${typeLabels[spot.type] || spot.type}　海拔：${spot.min_elevation}m<br>` +
         `今日機率：${scoreText}<br>` +
         `<button class="popup-btn" onclick="subscribeSpot('${spot.id}')">🔔 訂閱這個熱點</button>`
       );
