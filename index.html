@@ -91,6 +91,12 @@
 
 <main>
   <section data-view="dashboard">
+    <div class="card" id="dailyPicksCard">
+      <h2>🌟 今日推薦：可能出大景</h2>
+      <div id="dailyPicksBody" class="muted">掃描全台景點中…</div>
+      <p class="muted" style="font-size:11px;margin-top:8px">每天自動掃描全部景點的預測分數（同一支瀏覽器一天算一次），只挑出分數超過大景預警門檻(75分)的地點；今天沒有特別突出的就不硬推薦。僅供參考，實際天氣仍可能變化。</p>
+    </div>
+
     <div class="card">
       <h2>目前位置</h2>
       <div class="row">
@@ -417,6 +423,116 @@
     });
   }
   loadSpotChips();
+
+  // ---- 今日推薦：每天(同一支瀏覽器)算一次全部景點的分數，挑出「大景預警」(score>75)的地點 ----
+  // 沒有後端排程，快取存在瀏覽器localStorage，靠日期字串比對做到「一天一次」，
+  // 不同使用者各自的瀏覽器各跑各的，不是全站共用同一份結果。
+  const DAILY_PICKS_KEY = 'lc_daily_picks_v1';
+  const KIND_META = {
+    glow: { icon: '🔥', label: '火燒雲', scoreFn: window.WeatherMath.fieryGlowScore },
+    sea: { icon: '☁️', label: '雲海', scoreFn: window.WeatherMath.seaOfCloudsScore },
+    stars: { icon: '✨', label: '觀星', scoreFn: window.WeatherMath.starsScore }
+  };
+  const TYPE_TO_KIND = { sunrise: 'glow', sunset: 'glow', sea_of_clouds: 'sea', stars: 'stars' };
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function loadDailyPicksCache() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(DAILY_PICKS_KEY));
+      return parsed && parsed.dateKey === todayKey() ? parsed.picks : null;
+    } catch (e) { return null; }
+  }
+
+  function saveDailyPicksCache(picks) {
+    try { localStorage.setItem(DAILY_PICKS_KEY, JSON.stringify({ dateKey: todayKey(), picks })); }
+    catch (e) { /* 存不進去(無痕視窗等)就放棄快取，不影響當次顯示 */ }
+  }
+
+  // 找「下一次」該現象的時間點：今天的還沒過就用今天，過了(含1小時緩衝)就用明天。
+  // 火燒雲抓傍晚黃金時刻、雲海抓清晨黎明、觀星抓天文昏影結束(真正入夜)。
+  function nextPhenomenonTime(lat, lng, kind) {
+    const now = new Date();
+    const tomorrowDate = new Date(now);
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const today = window.WeatherMath.getGoldenBlueHours(now, lat, lng);
+    const tomorrow = window.WeatherMath.getGoldenBlueHours(tomorrowDate, lat, lng);
+    const field = { glow: 'duskGolden', sea: 'dawnGolden' }[kind];
+    const t1 = kind === 'stars' ? today.duskBlue.end : today[field].start;
+    const t2 = kind === 'stars' ? tomorrow.duskBlue.end : tomorrow[field].start;
+    const graceMs = 3600 * 1000;
+    if (t1 instanceof Date && !Number.isNaN(t1.getTime()) && t1.getTime() > now.getTime() - graceMs) return t1;
+    if (t2 instanceof Date && !Number.isNaN(t2.getTime())) return t2;
+    return null;
+  }
+
+  async function scoreLocationForDailyPicks(loc) {
+    const kinds = [...new Set(loc.types.map((t) => TYPE_TO_KIND[t]).filter(Boolean))];
+    if (!kinds.length) return null;
+    const data = await window.WeatherMath.fetchHourlyWeather(loc.lat, loc.lng);
+    let best = null;
+    kinds.forEach((kind) => {
+      const target = nextPhenomenonTime(loc.lat, loc.lng, kind);
+      if (!target) return;
+      const idx = window.WeatherMath.nearestHourIndex(data.hourly, target);
+      const closest = new Date(data.hourly.time[idx]);
+      if (Math.abs(closest - target) > 3 * 3600 * 1000) return; // 超出預報範圍就跳過這個現象
+      const h = window.WeatherMath.hourAtWindow(data.hourly, target);
+      const result = KIND_META[kind].scoreFn(h);
+      if (!best || result.score > best.score) best = { kind, score: result.score, alert: result.alert };
+    });
+    if (!best) return null;
+    return Object.assign({ name: loc.name, lat: loc.lat, lng: loc.lng, min_elevation: loc.min_elevation, types: loc.types }, best);
+  }
+
+  async function computeDailyPicks() {
+    const { data: spots, error } = await window.SB.from('spots').select('*');
+    if (error || !spots || !spots.length) throw new Error(error ? error.message : '無景點資料');
+    const locations = groupSpotsByLocation(spots);
+    const results = await Promise.all(locations.map((loc) => scoreLocationForDailyPicks(loc).catch(() => null)));
+    return results.filter(Boolean).filter((p) => p.alert).sort((a, b) => b.score - a.score).slice(0, 3);
+  }
+
+  function renderDailyPicks(picks) {
+    const body = document.getElementById('dailyPicksBody');
+    if (!picks.length) {
+      body.innerHTML = '今天全台景點都沒有特別突出的預測（未達大景預警門檻），明天再來看看。';
+      return;
+    }
+    body.innerHTML = picks.map((p, i) => {
+      const meta = KIND_META[p.kind];
+      return `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>${meta.icon} <b>${p.name}</b>　<span class="fc-badge" style="background:${scoreColor(p.score)}">${meta.label} ${p.score}</span></div>
+        <button class="popup-btn" data-pick="${i}">查看預測</button>
+      </div>`;
+    }).join('');
+    body.querySelectorAll('button[data-pick]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const p = picks[Number(btn.dataset.pick)];
+        selectedSpot = { name: p.name, lat: p.lat, lng: p.lng, min_elevation: p.min_elevation, types: p.types };
+        clearChipSelection();
+        setCoords(p.lat, p.lng, p.name);
+        document.getElementById('btnWeather').click();
+        document.getElementById('countdownLabel').scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+  }
+
+  async function initDailyPicks() {
+    const cached = loadDailyPicksCache();
+    if (cached) { renderDailyPicks(cached); return; }
+    try {
+      const picks = await computeDailyPicks();
+      saveDailyPicksCache(picks);
+      renderDailyPicks(picks);
+    } catch (e) {
+      document.getElementById('dailyPicksBody').textContent = '推薦計算失敗，請稍後重新整理頁面再試。';
+    }
+  }
+  initDailyPicks();
 
   // ---- 黃金/藍調時刻倒數 ----
   let countdownTimer = null;
