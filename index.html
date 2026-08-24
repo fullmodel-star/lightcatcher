@@ -209,16 +209,30 @@
     return '#3F6B4F';
   }
 
-  async function scoreForSpot(spot) {
-    const data = await window.WeatherMath.fetchHourlyWeather(spot.lat, spot.lng);
-    const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
-    const h = window.WeatherMath.hourAt(data.hourly, idx);
-    let result;
-    if (spot.type === 'sea_of_clouds') result = window.WeatherMath.seaOfCloudsScore(h);
-    // sunset/sunrise都是晨昏「火燒雲」光學現象，用同一個評分公式
-    else if (spot.type === 'sunset' || spot.type === 'sunrise') result = window.WeatherMath.fieryGlowScore(h);
-    else result = window.WeatherMath.starsScore(h);
-    return { result, h };
+  // 地圖跟首頁一致：每個地點都算出三種現象的分數，主打的(資料庫type)正常列出，
+  // 沒被標記的另外1-2種收進「其他預測」摺疊區塊，不是只顯示它主打的那一種。
+  function locationConcepts(loc) {
+    return {
+      hasSea: loc.types.includes('sea_of_clouds'),
+      hasGlow: loc.types.includes('sunrise') || loc.types.includes('sunset'),
+      hasStars: loc.types.includes('stars'),
+      glowLabel: loc.types.includes('sunrise') ? '日出' : '日落'
+    };
+  }
+
+  function seaLine(h, groundElevationM) {
+    const sea = window.WeatherMath.seaOfCloudsScore(h);
+    const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
+    const cmp = cb.amslM <= groundElevationM ? '在雲層之上✅' : '可能在雲層之下';
+    return `☁️ 雲海：<b style="color:${scoreColor(sea.score)}">${sea.score}分</b>（雲海高度估計約${cb.amslM}m，機位${cmp}）`;
+  }
+  function glowLine(h, label) {
+    const glow = window.WeatherMath.fieryGlowScore(h);
+    return `🔥 ${label}火燒雲：<b style="color:${scoreColor(glow.score)}">${glow.score}分</b>`;
+  }
+  function starsLine(h) {
+    const stars = window.WeatherMath.starsScore(h);
+    return `✨ 觀星：<b style="color:${scoreColor(stars.score)}">${stars.score}分</b>（未算光害）`;
   }
 
   async function initMapIfNeeded() {
@@ -238,38 +252,51 @@
     if (!spots || !spots.length) { statusEl.textContent = '目前還沒有熱點資料（可在Supabase跑seed.sql加幾筆）'; return; }
 
     mapLocations = groupSpotsByLocation(spots);
-    const typeLabels = { sunrise: '日出', sunset: '日落', sea_of_clouds: '雲海', stars: '星空' };
     const markers = [];
     let done = 0;
-    await Promise.all(spots.map(async (spot) => {
-      let scored = null;
-      try { scored = await scoreForSpot(spot); } catch (e) { /* 單一熱點失敗不擋其他熱點 */ }
-      const score = scored ? scored.result.score : null;
-      const color = score === null ? '#BECBD5' : scoreColor(score);
-      const marker = L.circleMarker([spot.lat, spot.lng], {
+    await Promise.all(mapLocations.map(async (loc, i) => {
+      const { hasSea, hasGlow, hasStars, glowLabel } = locationConcepts(loc);
+      let color = '#BECBD5';
+      let popupBody = '無法計算（氣象資料抓取失敗）';
+      try {
+        const data = await window.WeatherMath.fetchHourlyWeather(loc.lat, loc.lng);
+        const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
+        const h = window.WeatherMath.hourAt(data.hourly, idx);
+        const groundElevationM = loc.min_elevation || data.elevation || 0;
+
+        const primaryLines = [];
+        const secondaryLines = [];
+        if (hasSea) primaryLines.push(seaLine(h, groundElevationM)); else secondaryLines.push(seaLine(h, groundElevationM));
+        if (hasGlow) primaryLines.push(glowLine(h, glowLabel)); else secondaryLines.push(glowLine(h, '日出/日落'));
+        if (hasStars) primaryLines.push(starsLine(h)); else secondaryLines.push(starsLine(h));
+
+        const scores = [];
+        if (hasSea) scores.push(window.WeatherMath.seaOfCloudsScore(h).score);
+        if (hasGlow) scores.push(window.WeatherMath.fieryGlowScore(h).score);
+        if (hasStars) scores.push(window.WeatherMath.starsScore(h).score);
+        color = scoreColor(Math.max(...scores));
+
+        popupBody = primaryLines.join('<br>') +
+          (secondaryLines.length
+            ? `<details style="margin-top:6px"><summary style="cursor:pointer;color:#6E8BA3">其他預測(附加參考)</summary>${secondaryLines.join('<br>')}</details>`
+            : '');
+      } catch (e) { /* 單一熱點失敗不擋其他熱點 */ }
+
+      const marker = L.circleMarker([loc.lat, loc.lng], {
         radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9
       }).addTo(leafletMap);
-      const scoreText = score === null ? '無法計算' : `${score}分`;
-      let extra = '';
-      if (scored && spot.type === 'sea_of_clouds') {
-        const cb = window.WeatherMath.cloudBaseAMSL(scored.h, spot.min_elevation || 0);
-        extra = `<br>雲海高度估計：約${cb.amslM}m（此機位${cb.amslM <= spot.min_elevation ? '在雲層之上✅' : '可能在雲層之下'}）`;
-      }
-      const locIndex = mapLocations.findIndex((l) => l.name === spot.name && l.lat === spot.lat && l.lng === spot.lng);
       marker.bindPopup(
-        `<strong>${spot.name}</strong><br>` +
-        `類型：${typeLabels[spot.type] || spot.type}　海拔：${spot.min_elevation}m<br>` +
-        `今日機率：${scoreText}${extra}<br>` +
-        `<button class="popup-btn" onclick="goToSpotDetail(${locIndex})">📊 查看完整預測</button>`
+        `<strong>${loc.name}</strong>　海拔：${loc.min_elevation}m<br>${popupBody}<br>` +
+        `<button class="popup-btn" onclick="goToSpotDetail(${i})">📊 查看完整預測</button>`
       );
       markers.push(marker);
       done++;
-      statusEl.textContent = `已載入 ${done}/${spots.length} 個熱點`;
+      statusEl.textContent = `已載入 ${done}/${mapLocations.length} 個景點`;
     }));
     if (markers.length) {
       leafletMap.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
     }
-    statusEl.textContent = `共 ${spots.length} 個熱點（點圖標看詳情）`;
+    statusEl.textContent = `共 ${mapLocations.length} 個景點（點圖標看詳情）`;
   }
 
   window.addEventListener('hashchange', () => {
