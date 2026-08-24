@@ -44,6 +44,8 @@
   .factor-label{display:flex;justify-content:space-between;font-size:12px;color:var(--steel);margin-bottom:3px}
   .factor-bar{height:6px;background:var(--snow);border-radius:999px;overflow:hidden}
   .factor-bar > div{height:100%;border-radius:999px}
+  .info-link{font-size:11px;color:var(--steel);text-decoration:none;white-space:nowrap}
+  .info-link:hover{text-decoration:underline}
   .placeholder{padding:40px 16px;text-align:center;color:var(--steel)}
   .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;padding:12px 16px;align-items:center;justify-content:space-between;font-size:13px}
   .update-bar button{padding:6px 12px;font-size:13px}
@@ -68,9 +70,9 @@
 </header>
 
 <nav id="nav">
-  <a href="#dashboard" data-view="dashboard">首頁</a>
-  <a href="#map" data-view="map">地圖探索</a>
-  <a href="#about" data-view="about">預測說明</a>
+  <a href="#dashboard" data-view="dashboard">🏠 首頁</a>
+  <a href="#map" data-view="map">🗺️ 地圖探索</a>
+  <a href="#about" data-view="about">📖 預測說明</a>
 </nav>
 
 <main>
@@ -125,7 +127,7 @@
   </section>
 
   <section data-view="about">
-    <div class="card">
+    <div class="card" id="section-glow">
       <h2>🔥 火燒雲指數（日出／日落）</h2>
       <p class="muted">看的是「有沒有雲能反射夕陽的紅光」，不是雲越少越好：</p>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
@@ -135,7 +137,7 @@
         <li><b>能見度 15%</b>：&gt;15km加分，霧霾會讓顏色混濁</li>
       </ul>
     </div>
-    <div class="card">
+    <div class="card" id="section-sea">
       <h2>☁️ 雲海指數＋雲海高度</h2>
       <p class="muted">雲海需要「逆溫」——高空比地面暖，把水氣蓋在低處變成一層雲：</p>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
@@ -145,7 +147,7 @@
       </ul>
       <p class="muted"><b>雲海高度</b>是額外估算：用氣象學經典的「凝結高度」公式——<code>雲底高度(公尺) ≈ 125 × (地面氣溫 − 露點溫度)</code>（Espy's equation）反推雲層大概在哪個海拔，藉此判斷你所在的觀景點是在雲層之上還是之下。這是理論估算不是實測，僅供參考。</p>
     </div>
-    <div class="card">
+    <div class="card" id="section-stars">
       <h2>✨ 觀星指數</h2>
       <p class="muted">總雲量(70%，越少越好)＋濕度代表的霾害程度(30%)。這個指數目前<b>不考慮光害</b>，市區觀星實際感受會比分數差很多。</p>
     </div>
@@ -172,13 +174,19 @@
 
   // ---- hash 路由 ----
   function render() {
-    const view = (location.hash || '#dashboard').slice(1);
+    // 支援 #view:anchor 格式（例如 #about:glow），切頁後捲到頁內對應段落
+    const raw = (location.hash || '#dashboard').slice(1);
+    const [view, anchor] = raw.split(':');
     document.querySelectorAll('section[data-view]').forEach((s) => {
       s.classList.toggle('active', s.dataset.view === view);
     });
     document.querySelectorAll('#nav a').forEach((a) => {
       a.classList.toggle('active', a.dataset.view === view);
     });
+    if (anchor) {
+      const target = document.getElementById('section-' + anchor);
+      if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
   }
   window.addEventListener('hashchange', render);
   render();
@@ -294,24 +302,38 @@
     setCoords(lat, lng, '手動輸入');
   });
 
-  // ---- 知名景點快選 ----
+  // ---- 知名景點快選（同一地點若有多種現象，合併成一個按鈕，選中後全部一起顯示） ----
+  const typeIcon = { sunrise: '🌅', sunset: '🌇', sea_of_clouds: '☁️', stars: '✨' };
+
+  function groupSpotsByLocation(spots) {
+    const byKey = new Map();
+    spots.forEach((s) => {
+      const key = `${s.name}|${s.lat}|${s.lng}`;
+      if (!byKey.has(key)) {
+        byKey.set(key, { name: s.name, lat: s.lat, lng: s.lng, min_elevation: s.min_elevation, types: [] });
+      }
+      byKey.get(key).types.push(s.type);
+    });
+    return [...byKey.values()];
+  }
+
   async function loadSpotChips() {
     const container = document.getElementById('spotChips');
     const { data: spots, error } = await window.SB.from('spots').select('*').order('name');
     if (error) { container.innerHTML = `<span class="muted">景點載入失敗：${error.message}</span>`; return; }
     if (!spots || !spots.length) { container.innerHTML = '<span class="muted">目前尚無景點資料</span>'; return; }
-    const typeIcon = { sunrise: '🌅', sunset: '🌇', sea_of_clouds: '☁️', stars: '✨' };
-    container.innerHTML = spots.map((s) =>
-      `<button type="button" class="chip" data-id="${s.id}">${typeIcon[s.type] || ''} ${s.name}</button>`
+    const locations = groupSpotsByLocation(spots);
+    container.innerHTML = locations.map((loc, i) =>
+      `<button type="button" class="chip" data-i="${i}">${loc.types.map((t) => typeIcon[t] || '').join('')} ${loc.name}</button>`
     ).join('');
     container.querySelectorAll('.chip').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const spot = spots.find((s) => s.id === btn.dataset.id);
-        if (!spot) return;
-        selectedSpot = spot;
+        const loc = locations[Number(btn.dataset.i)];
+        if (!loc) return;
+        selectedSpot = loc;
         clearChipSelection();
         btn.classList.add('active');
-        setCoords(spot.lat, spot.lng, spot.name);
+        setCoords(loc.lat, loc.lng, loc.name);
         document.getElementById('btnWeather').click();
       });
     });
@@ -375,10 +397,10 @@
   function renderGlowCard(glow, title) {
     const b = glow.breakdown;
     return `<div class="score-card">
-      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><span class="score-num" style="color:${scoreColor(glow.score)}">${glow.score}</span></div>
+      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(glow.score)}">${glow.score}</span></div>
       <div class="score-factors">
         ${factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score)}
-        ${factorBar('中高雲量(40-70%最佳)', b.midHighCloud.value + '%', b.midHighCloud.score)}
+        ${factorBar('中高雲量(40-70%最佳)', Math.min(100, b.midHighCloud.value) + '%', b.midHighCloud.score)}
         ${factorBar('濕度(越低越通透)', b.humidity.value + '%', b.humidity.score)}
         ${factorBar('能見度', Math.round(b.visibility.value / 1000) + 'km', b.visibility.score)}
       </div>
@@ -397,7 +419,7 @@
         : `。你選的機位（${selectedSpot.min_elevation}m）接近雲層高度，可能置身雲霧中`;
     }
     return `<div class="score-card">
-      <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><span class="score-num" style="color:${scoreColor(sea.score)}">${sea.score}</span></div>
+      <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><a class="info-link" href="#about:sea">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(sea.score)}">${sea.score}</span></div>
       <div class="score-factors">
         ${factorBar('逆溫強度(高空較暖越好)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
         ${factorBar('高空濕度', Math.round(b.upperHumidity.value) + '%', b.upperHumidity.score)}
@@ -411,7 +433,7 @@
   function renderStarsCard(stars) {
     const b = stars.breakdown;
     return `<div class="score-card">
-      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><span class="score-num" style="color:${scoreColor(stars.score)}">${stars.score}</span></div>
+      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(stars.score)}">${stars.score}</span></div>
       <div class="score-factors">
         ${factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score)}
         ${factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score)}
@@ -422,14 +444,19 @@
   function renderScoreCards(h, groundElevationM) {
     const container = document.getElementById('scoreCards');
     if (selectedSpot) {
-      if (selectedSpot.type === 'sea_of_clouds') {
-        container.innerHTML = renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM);
-      } else if (selectedSpot.type === 'sunrise' || selectedSpot.type === 'sunset') {
-        const title = (selectedSpot.type === 'sunrise' ? '日出' : '日落') + '火燒雲指數';
-        container.innerHTML = renderGlowCard(window.WeatherMath.fieryGlowScore(h), title);
-      } else {
-        container.innerHTML = renderStarsCard(window.WeatherMath.starsScore(h));
+      // 一個地點可能同時對應多種現象(例如武嶺=雲海+日落+星空)，全部一起顯示
+      const cards = [];
+      if (selectedSpot.types.includes('sea_of_clouds')) {
+        cards.push(renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM));
       }
+      if (selectedSpot.types.includes('sunrise') || selectedSpot.types.includes('sunset')) {
+        const title = (selectedSpot.types.includes('sunrise') ? '日出' : '日落') + '火燒雲指數';
+        cards.push(renderGlowCard(window.WeatherMath.fieryGlowScore(h), title));
+      }
+      if (selectedSpot.types.includes('stars')) {
+        cards.push(renderStarsCard(window.WeatherMath.starsScore(h)));
+      }
+      container.innerHTML = cards.join('');
     } else {
       container.innerHTML =
         renderGlowCard(window.WeatherMath.fieryGlowScore(h), '火燒雲指數') +
@@ -462,16 +489,16 @@
       }
       const h = window.WeatherMath.hourAt(data.hourly, idx);
       const badges = [];
-      const type = selectedSpot && selectedSpot.type;
-      if (!type || type === 'sunrise' || type === 'sunset') {
+      const types = selectedSpot ? selectedSpot.types : null;
+      if (!types || types.includes('sunrise') || types.includes('sunset')) {
         const glow = window.WeatherMath.fieryGlowScore(h);
         badges.push(`<span class="fc-badge" style="background:${scoreColor(glow.score)}">🔥 ${glow.score}</span>`);
       }
-      if (!type || type === 'sea_of_clouds') {
+      if (!types || types.includes('sea_of_clouds')) {
         const sea = window.WeatherMath.seaOfCloudsScore(h);
         badges.push(`<span class="fc-badge" style="background:${scoreColor(sea.score)}">☁️ ${sea.score}</span>`);
       }
-      if (!type || type === 'stars') {
+      if (!types || types.includes('stars')) {
         const stars = window.WeatherMath.starsScore(h);
         badges.push(`<span class="fc-badge" style="background:${scoreColor(stars.score)}">✨ ${stars.score}</span>`);
       }
