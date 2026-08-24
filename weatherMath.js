@@ -98,6 +98,27 @@
     };
   }
 
+  // 藍調時刻：太陽在地平線下、天空呈現深藍漸層的短暫時段，跟火燒雲不同——
+  // 不需要雲被夕陽染紅，反而是雲太多會把整片藍天悶成灰蒙蒙，所以走「雲越少越好」，
+  // 但門檻比觀星寬鬆(70%才歸零，不是60%)，因為藍調時刻本來就偏短暫、些微雲層還能接受。
+  // 權重仍是方向性估計值，跟其他三個指數同一套自訂邏輯，非驗證過的氣象公式。
+  function blueHourScore(h) {
+    const totalCloud = (h.cloudLow + h.cloudMid + h.cloudHigh) / 3;
+    const cloudScore = clampLerp(totalCloud, 0, 100, 70, 0);
+    const visibilityScore = clampLerp(h.visibility, 5000, 0, 15000, 100);
+    const humidityScore = h.humidity <= 60 ? 100 : clampLerp(h.humidity, 60, 100, 90, 0);
+    const score = cloudScore * 0.5 + visibilityScore * 0.3 + humidityScore * 0.2;
+    return {
+      score: Math.round(score),
+      alert: score > 75,
+      breakdown: {
+        totalCloud: { value: Math.round(totalCloud), score: Math.round(cloudScore), weight: 0.5 },
+        visibility: { value: h.visibility, score: Math.round(visibilityScore), weight: 0.3 },
+        humidity: { value: h.humidity, score: Math.round(humidityScore), weight: 0.2 }
+      }
+    };
+  }
+
   // 雲海高度估算：LCL(凝結高度) ≈ 125 × (地面氣溫 − 露點溫度)公尺，氣象學經典估算式(Espy's equation)。
   // 回傳離地高度(AGL)；要換算成海拔(AMSL)需再加地面高程，見cloudBaseAMSL。
   function lclHeightAGL(surfaceTemp, dewpoint) {
@@ -263,6 +284,7 @@
     fieryGlowScore,
     seaOfCloudsScore,
     starsScore,
+    blueHourScore,
     lclHeightAGL,
     cloudBaseAMSL,
     fetchHourlyWeather,

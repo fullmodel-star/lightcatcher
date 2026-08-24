@@ -119,6 +119,7 @@
       <h2 id="countdownLabel">下一個光影時刻</h2>
       <div class="countdown" id="countdownTime">--:--:--</div>
       <div class="countdown-label" id="countdownEvent">請先定位</div>
+      <div id="blueHourScoreLine" class="muted" style="margin-top:8px"></div>
     </div>
 
     <div class="card">
@@ -357,9 +358,19 @@
       return;
     }
     document.getElementById('locStatus').textContent = '定位中…';
+    // 沒設timeout的話部分瀏覽器/裝置會無限等待、卡在「定位中…」看起來像當掉，
+    // 加10秒逾時＋依error.code給明確原因，使用者才知道是被拒絕權限還是單純訊號差
     navigator.geolocation.getCurrentPosition(
       (pos) => { selectedSpot = null; clearChipSelection(); setCoords(pos.coords.latitude, pos.coords.longitude, 'GPS'); },
-      () => { document.getElementById('locStatus').textContent = '定位失敗，請手動輸入經緯度'; }
+      (err) => {
+        const msg = {
+          1: '定位權限被拒絕，請到瀏覽器/系統設定允許這個網站使用定位，或改用手動輸入',
+          2: '目前裝置無法取得位置(可能未開定位服務)，請改用手動輸入',
+          3: '定位逾時(10秒內無回應)，可再試一次或改用手動輸入'
+        }[err.code] || '定位失敗，請手動輸入經緯度';
+        document.getElementById('locStatus').textContent = msg;
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
     );
   });
 
@@ -431,7 +442,8 @@
   const KIND_META = {
     glow: { icon: '🔥', label: '火燒雲', scoreFn: window.WeatherMath.fieryGlowScore },
     sea: { icon: '☁️', label: '雲海', scoreFn: window.WeatherMath.seaOfCloudsScore },
-    stars: { icon: '✨', label: '觀星', scoreFn: window.WeatherMath.starsScore }
+    stars: { icon: '✨', label: '觀星', scoreFn: window.WeatherMath.starsScore },
+    blue: { icon: '💙', label: '藍調時刻', scoreFn: window.WeatherMath.blueHourScore }
   };
   const TYPE_TO_KIND = { sunrise: 'glow', sunset: 'glow', sea_of_clouds: 'sea', stars: 'stars' };
 
@@ -452,26 +464,34 @@
     catch (e) { /* 存不進去(無痕視窗等)就放棄快取，不影響當次顯示 */ }
   }
 
-  // 找「下一次」該現象的時間點：今天的還沒過就用今天，過了(含1小時緩衝)就用明天。
-  // 火燒雲抓傍晚黃金時刻、雲海抓清晨黎明、觀星抓天文昏影結束(真正入夜)。
+  // 找「下一次」該現象的時間點：今天的還沒過(含1小時緩衝)就用今天，過了就用明天。
+  // 火燒雲抓傍晚黃金時刻、雲海抓清晨黎明、觀星抓天文昏影結束(真正入夜)、
+  // 藍調時刻一天有晨昏兩段，取離現在最近的下一段(邏輯比照倒數計時器的nextEvent)。
   function nextPhenomenonTime(lat, lng, kind) {
     const now = new Date();
     const tomorrowDate = new Date(now);
     tomorrowDate.setDate(tomorrowDate.getDate() + 1);
     const today = window.WeatherMath.getGoldenBlueHours(now, lat, lng);
     const tomorrow = window.WeatherMath.getGoldenBlueHours(tomorrowDate, lat, lng);
-    const field = { glow: 'duskGolden', sea: 'dawnGolden' }[kind];
-    const t1 = kind === 'stars' ? today.duskBlue.end : today[field].start;
-    const t2 = kind === 'stars' ? tomorrow.duskBlue.end : tomorrow[field].start;
     const graceMs = 3600 * 1000;
-    if (t1 instanceof Date && !Number.isNaN(t1.getTime()) && t1.getTime() > now.getTime() - graceMs) return t1;
-    if (t2 instanceof Date && !Number.isNaN(t2.getTime())) return t2;
-    return null;
+    const isValid = (t) => t instanceof Date && !Number.isNaN(t.getTime()) && t.getTime() > now.getTime() - graceMs;
+
+    let candidates;
+    if (kind === 'blue') {
+      candidates = [today.dawnBlue.start, today.duskBlue.start, tomorrow.dawnBlue.start, tomorrow.duskBlue.start];
+    } else if (kind === 'stars') {
+      candidates = [today.duskBlue.end, tomorrow.duskBlue.end];
+    } else {
+      const field = { glow: 'duskGolden', sea: 'dawnGolden' }[kind];
+      candidates = [today[field].start, tomorrow[field].start];
+    }
+    const valid = candidates.filter(isValid).sort((a, b) => a - b);
+    return valid[0] || null;
   }
 
   async function scoreLocationForDailyPicks(loc) {
-    const kinds = [...new Set(loc.types.map((t) => TYPE_TO_KIND[t]).filter(Boolean))];
-    if (!kinds.length) return null;
+    // 藍調時刻不靠景點資料庫標記——任何地方都適用，不像雲海/觀星需要地形/光害條件
+    const kinds = [...new Set([...loc.types.map((t) => TYPE_TO_KIND[t]).filter(Boolean), 'blue'])];
     const data = await window.WeatherMath.fetchHourlyWeather(loc.lat, loc.lng);
     let best = null;
     kinds.forEach((kind) => {
@@ -776,6 +796,24 @@
       statusEl.textContent = `已更新（${data.hourly.time[idx]}）`;
 
       renderForecast3(data, coords.lat, coords.lng, groundElevationM);
+
+      // 藍調時刻不是資料庫標記的現象類型，獨立算分附在倒數計時卡下面，
+      // 跟「今日推薦」用同一套nextPhenomenonTime()/blueHourScore()，兩處數字對得起來
+      const blueLine = document.getElementById('blueHourScoreLine');
+      const blueTarget = nextPhenomenonTime(coords.lat, coords.lng, 'blue');
+      if (blueTarget) {
+        const idxBlue = window.WeatherMath.nearestHourIndex(data.hourly, blueTarget);
+        const closestBlue = new Date(data.hourly.time[idxBlue]);
+        if (Math.abs(closestBlue - blueTarget) <= 3 * 3600 * 1000) {
+          const hBlue = window.WeatherMath.hourAtWindow(data.hourly, blueTarget);
+          const blue = window.WeatherMath.blueHourScore(hBlue);
+          blueLine.innerHTML = `💙 藍調時刻預測：<span class="fc-badge" style="background:${scoreColor(blue.score)}">${blue.score}</span>${blue.alert ? '　值得留意' : ''}`;
+        } else {
+          blueLine.textContent = '';
+        }
+      } else {
+        blueLine.textContent = '';
+      }
     } catch (err) {
       statusEl.textContent = '抓取失敗：' + err.message;
     }

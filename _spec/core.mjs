@@ -102,6 +102,16 @@ function check(name, cond) {
   check('[5] bad.score 落在0-100', bad.score >= 0 && bad.score <= 100);
 }
 
+// [5b] 藍調時刻指數：晴空高分、滿天雲低分，且都落在0-100
+{
+  const good = WM.blueHourScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 40, visibility: 15000 });
+  const bad = WM.blueHourScore({ cloudLow: 100, cloudMid: 100, cloudHigh: 100, humidity: 95, visibility: 2000 });
+  check('[5b] 晴空高分', good.score > 70);
+  check('[5b] 滿天雲低分', bad.score < 20);
+  check('[5b] good.score 落在0-100', good.score >= 0 && good.score <= 100);
+  check('[5b] bad.score 落在0-100', bad.score >= 0 && bad.score <= 100);
+}
+
 // [6] 雲海高度估算(LCL)：氣溫露點差越大，雲底越高；差為0時應為0(飽和/貼地霧)
 {
   const dry = WM.lclHeightAGL(25, 10); // 差15度
