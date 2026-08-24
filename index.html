@@ -9,31 +9,41 @@
 <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
 <meta name="theme-color" content="#A64B38">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
+<script>
+  // 深色模式偏好要在CSS套用前就設定好，不然會先閃一下淺色再切換
+  try { document.documentElement.setAttribute('data-theme', localStorage.getItem('lc_theme_v1') || 'light'); } catch (e) {}
+</script>
 <style>
   :root{
     --ink:#141E2B; --ink2:#2C4459; --steel:#6E8BA3; --snow:#EEF3F6; --paper:#F7F3EC;
-    --k2:#A64B38; --good:#3F6B4F; --warn:#DE9A45; --line:#BECBD5;
+    --k2:#A64B38; --good:#3F6B4F; --warn:#DE9A45; --line:#BECBD5; --surface:#fff;
+    --bar-bg:#141E2B; --bar-fg:#EEF3F6;
+  }
+  /* 深色模式：只調整結構性的中性色(頁面底色/文字/邊框/卡片底色)，
+     品牌強調色(--k2)跟頭尾常駐深色列(--bar-bg/--bar-fg)刻意不隨主題變化 */
+  [data-theme="dark"]{
+    --paper:#12181F; --ink:#E8EDF2; --steel:#9FB4C6; --snow:#1E2731; --line:#2A3946; --surface:#182230;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:'Noto Sans TC',system-ui,-apple-system,sans-serif;background:var(--paper);color:var(--ink)}
   /* 稜線品牌App Bar：家族山徽＋App名＋該家族header_slogan（ridgeline-tokens.json app_header規範） */
-  .rl-appbar{display:flex;align-items:center;gap:14px;background:var(--ink);color:var(--snow);padding:14px 18px}
+  .rl-appbar{display:flex;align-items:center;gap:14px;background:var(--bar-bg);color:var(--bar-fg);padding:14px 18px}
   .rl-appbar .rl-mark{width:36px;height:36px;flex:0 0 auto;object-fit:contain}
   .rl-appbar .rl-title{font-family:'Noto Serif TC',serif;font-weight:700;font-size:18px;line-height:1.15}
   .rl-appbar .rl-slogan{font-size:12px;color:var(--steel)}
   .rl-appbar .rl-spacer{flex:1}
   .rl-appbar .ver{font-size:11px;color:var(--steel)}
-  nav{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
   nav a{flex:1;text-align:center;padding:12px 4px;font-size:13px;color:var(--steel);text-decoration:none;border-bottom:3px solid transparent}
   nav a.active{color:var(--k2);border-bottom-color:var(--k2);font-weight:600}
   main{padding:16px;max-width:520px;margin:0 auto}
-  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
   .card h2{font-size:14px;margin:0 0 10px;color:var(--steel);font-weight:600}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   button{background:var(--k2);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer}
   button.secondary{background:var(--snow);color:var(--ink)}
   button:disabled{opacity:.5;cursor:not-allowed}
-  input[type=number]{width:110px;padding:8px;border:1px solid var(--line);border-radius:8px}
+  input[type=number],input[type=text]{width:110px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
   .countdown{font-size:32px;font-weight:700;letter-spacing:1px;margin:6px 0}
   .countdown-label{font-size:13px;color:var(--steel)}
   .ring-alert{color:var(--k2);font-weight:600;margin-top:8px}
@@ -56,7 +66,7 @@
   .secondary-details summary{cursor:pointer;font-size:13px;color:var(--steel);font-weight:600}
   .secondary-details .score-card{opacity:.85}
   .placeholder{padding:40px 16px;text-align:center;color:var(--steel)}
-  .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;padding:12px 16px;align-items:center;justify-content:space-between;font-size:13px}
+  .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bar-bg);color:var(--bar-fg);padding:12px 16px;align-items:center;justify-content:space-between;font-size:13px}
   .update-bar button{padding:6px 12px;font-size:13px}
   section[data-view]{display:none}
   section[data-view].active{display:block}
@@ -91,6 +101,7 @@
   <a href="#dashboard" data-view="dashboard">🏠 首頁</a>
   <a href="#map" data-view="map">🗺️ 地圖探索</a>
   <a href="#about" data-view="about">📖 預測說明</a>
+  <a href="#settings" data-view="settings">⚙️ 自訂選項</a>
 </nav>
 
 <main>
@@ -206,6 +217,37 @@
         <li>💎琉璃光指數只在資料庫明確標記過「谷地下方有城鎮燈光」的地點顯示(目前只有金龍山)，不像雲海/觀星可以套用在任何地點當附加參考。</li>
         <li>天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</li>
       </ul>
+    </div>
+  </section>
+
+  <section data-view="settings">
+    <div class="card">
+      <h2>⭐ 我的常用地點</h2>
+      <p class="muted" style="margin:0 0 10px">自己輸入座標＋命名存起來，之後隨時點選使用，不用每次重新輸入。</p>
+      <div class="row">
+        <input type="text" id="customSpotName" placeholder="名稱(例如：我家陽台)" style="width:180px">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input type="number" id="customSpotLat" placeholder="緯度" step="0.0001">
+        <input type="number" id="customSpotLng" placeholder="經度" step="0.0001">
+        <button id="btnAddCustomSpot">+ 新增</button>
+      </div>
+      <p class="muted" id="customSpotStatus" style="margin:6px 0 0"></p>
+      <div id="customSpotList" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <h2>📍 上次記住的地點</h2>
+      <p class="muted" style="margin:0 0 10px">開啟App會自動帶入這個地點並直接抓氣象，不用重新選一次。</p>
+      <div id="lastLocationInfo" class="muted">尚未記住任何地點</div>
+      <button class="secondary" id="btnClearLastLocation" style="margin-top:10px">🗑️ 清除記住的地點</button>
+    </div>
+
+    <div class="card">
+      <h2>🎨 顯示偏好</h2>
+      <label class="row" style="cursor:pointer">
+        <input type="checkbox" id="darkModeToggle" style="width:auto"> 深色模式
+      </label>
     </div>
   </section>
 </main>
@@ -932,6 +974,98 @@
   });
 
   restoreLastLocation();
+
+  // ---- 自訂選項頁：常用地點管理 / 清除記住的地點 / 深色模式 ----
+  const CUSTOM_SPOTS_KEY = 'lc_custom_spots_v1';
+
+  function loadCustomSpots() {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_SPOTS_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveCustomSpots(list) {
+    try { localStorage.setItem(CUSTOM_SPOTS_KEY, JSON.stringify(list)); }
+    catch (e) { /* 存不進去(無痕視窗等)就放棄，不影響當次顯示 */ }
+  }
+  function renderCustomSpotList() {
+    const list = loadCustomSpots();
+    const container = document.getElementById('customSpotList');
+    if (!list.length) { container.innerHTML = '<p class="muted">目前沒有自訂地點</p>'; return; }
+    container.innerHTML = list.map((s, i) => `
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;padding:8px 10px;background:var(--snow);border-radius:8px">
+        <div><b>${s.name}</b><br><span class="muted" style="font-size:12px">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</span></div>
+        <div class="row" style="gap:6px">
+          <button class="secondary" data-use="${i}">使用</button>
+          <button class="secondary" data-del="${i}">刪除</button>
+        </div>
+      </div>`).join('');
+    container.querySelectorAll('[data-use]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const s = list[Number(btn.dataset.use)];
+        selectedSpot = null;
+        clearChipSelection();
+        setCoords(s.lat, s.lng, s.name);
+        location.hash = '#dashboard';
+        document.getElementById('btnWeather').click();
+      });
+    });
+    container.querySelectorAll('[data-del]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        list.splice(Number(btn.dataset.del), 1);
+        saveCustomSpots(list);
+        renderCustomSpotList();
+      });
+    });
+  }
+  document.getElementById('btnAddCustomSpot').addEventListener('click', () => {
+    const statusEl = document.getElementById('customSpotStatus');
+    const name = document.getElementById('customSpotName').value.trim();
+    const lat = parseFloat(document.getElementById('customSpotLat').value);
+    const lng = parseFloat(document.getElementById('customSpotLng').value);
+    if (!name || Number.isNaN(lat) || Number.isNaN(lng)) {
+      statusEl.textContent = '請填寫名稱與有效的緯度/經度';
+      return;
+    }
+    const list = loadCustomSpots();
+    list.push({ name, lat, lng });
+    saveCustomSpots(list);
+    document.getElementById('customSpotName').value = '';
+    document.getElementById('customSpotLat').value = '';
+    document.getElementById('customSpotLng').value = '';
+    statusEl.textContent = `已新增「${name}」`;
+    renderCustomSpotList();
+  });
+  renderCustomSpotList();
+
+  function renderLastLocationInfo() {
+    const el = document.getElementById('lastLocationInfo');
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY)); } catch (e) { saved = null; }
+    el.textContent = (saved && Number.isFinite(saved.lat))
+      ? `${saved.source || '上次地點'}：${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)}`
+      : '尚未記住任何地點';
+  }
+  document.getElementById('btnClearLastLocation').addEventListener('click', () => {
+    try { localStorage.removeItem(LAST_LOCATION_KEY); } catch (e) { /* 清不掉就算了 */ }
+    selectedSpot = null;
+    coords = null;
+    clearChipSelection();
+    document.getElementById('locStatus').textContent = '尚未定位';
+    document.getElementById('btnWeather').disabled = true;
+    document.getElementById('countdownEvent').textContent = '請先定位';
+    document.getElementById('countdownTime').textContent = '--:--:--';
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    renderLastLocationInfo();
+  });
+  renderLastLocationInfo();
+
+  const THEME_KEY = 'lc_theme_v1';
+  const darkModeToggle = document.getElementById('darkModeToggle');
+  darkModeToggle.checked = document.documentElement.getAttribute('data-theme') === 'dark';
+  darkModeToggle.addEventListener('change', () => {
+    const theme = darkModeToggle.checked ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* 存不進去下次就退回預設 */ }
+  });
 
   // ---- service worker + 更新橫幅 ----
   // 教訓(401登山管理平台踩過同一個坑)：長開分頁瀏覽器不會主動去檢查有沒有新版sw，
