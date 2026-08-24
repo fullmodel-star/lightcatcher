@@ -148,7 +148,8 @@
       <h2>☁️ 雲海指數＋雲海高度</h2>
       <p class="muted">雲海需要「逆溫」——高空比地面暖，把水氣蓋在低處變成一層雲：</p>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
-        <li><b>逆溫強度 50%</b>：比較地面氣溫與高空(925hPa，約海拔700-800m處)氣溫，高空越暖分數越高</li>
+        <li><b>逆溫強度 35%</b>：比較地面氣溫與925hPa(約海拔700-800m處)氣溫，高空越暖分數越高——這是逆溫存不存在的主訊號</li>
+        <li><b>逆溫層厚度 15%</b>：再往上比較925hPa跟850hPa(約海拔1500m)，如果溫度持平或續暖代表逆溫「蓋子」夠厚、雲海比較穩定不易破碎；如果快速轉冷代表逆溫層很薄，雲海容易一下就散了（2026-08-24新增，之前只看單一高度）</li>
         <li><b>高空濕度 25%</b>：夠濕才有雲可以形成</li>
         <li><b>地表風速 25%</b>：≤2m/s最佳，風太大雲海會被吹散</li>
       </ul>
@@ -160,7 +161,7 @@
     </div>
     <div class="card">
       <h2>誠實聲明</h2>
-      <p class="muted">氣象資料全部來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API。上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</p>
+      <p class="muted">氣象資料全部來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API。上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。所有分數都是取目標時刻前後1小時內的資料平均，不是只看單一整點，減少單一小時雜訊誤判的機會。天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</p>
     </div>
   </section>
 </main>
@@ -260,8 +261,7 @@
       let popupBody = '無法計算（氣象資料抓取失敗）';
       try {
         const data = await window.WeatherMath.fetchHourlyWeather(loc.lat, loc.lng);
-        const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
-        const h = window.WeatherMath.hourAt(data.hourly, idx);
+        const h = window.WeatherMath.hourAtWindow(data.hourly, new Date());
         const groundElevationM = loc.min_elevation || data.elevation || 0;
 
         const primaryLines = [];
@@ -484,7 +484,8 @@
     return `<div class="score-card">
       <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><a class="info-link" href="#about:sea">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(sea.score)}">${sea.score}</span></div>
       <div class="score-factors">
-        ${factorBar('逆溫強度(高空較暖越好)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
+        ${factorBar('逆溫強度(925hPa較地面暖越好)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
+        ${factorBar('逆溫層厚度(850hPa續暖代表夠厚)', b.inversionDepth.value.toFixed(1) + '°C', b.inversionDepth.score)}
         ${factorBar('高空濕度', Math.round(b.upperHumidity.value) + '%', b.upperHumidity.score)}
         ${factorBar('地表風速(靜穩最佳)', b.windSpeed.value.toFixed(1) + 'm/s', b.windSpeed.score)}
       </div>
@@ -564,7 +565,7 @@
         rows.push(`<div class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="muted">超出預報範圍</div></div>`);
         continue;
       }
-      const h = window.WeatherMath.hourAt(data.hourly, idx);
+      const h = window.WeatherMath.hourAtWindow(data.hourly, target);
       const badges = [];
       const types = selectedSpot ? selectedSpot.types : null;
       if (!types || types.includes('sunrise') || types.includes('sunset')) {
@@ -594,7 +595,7 @@
     try {
       const data = await window.WeatherMath.fetchHourlyWeather(coords.lat, coords.lng);
       const idx = window.WeatherMath.nearestHourIndex(data.hourly, new Date());
-      const h = window.WeatherMath.hourAt(data.hourly, idx);
+      const h = window.WeatherMath.hourAtWindow(data.hourly, new Date());
       const groundElevationM = (selectedSpot && selectedSpot.min_elevation) || data.elevation || 0;
 
       renderScoreCards(h, groundElevationM);

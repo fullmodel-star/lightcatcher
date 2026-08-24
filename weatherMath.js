@@ -52,10 +52,18 @@
     };
   }
 
-  // 逆溫是主因子(50%)，邊界層濕度(25%)+地表風速(25%)輔助
+  // 逆溫是主因子(50%，2026-08-24起改用925hPa+850hPa兩層判斷厚度)，
+  // 邊界層濕度(25%)+地表風速(25%)輔助
   function seaOfCloudsScore(h) {
-    const inversion = h.upperTemp - h.surfaceTemp;
-    const inversionScore = inversion > 0 ? clampLerp(inversion, 0, 50, 6, 100) : clampLerp(inversion, -6, 0, 0, 50);
+    // 第一層：地面→925hPa(約海拔700-800m)，逆溫存不存在的主訊號
+    const inv1 = h.upperTemp - h.surfaceTemp;
+    const inv1Score = inv1 > 0 ? clampLerp(inv1, 0, 50, 6, 100) : clampLerp(inv1, -6, 0, 0, 50);
+    // 第二層：925hPa→850hPa(約海拔1500m)，逆溫層夠不夠「厚」——
+    // 850hPa持平或續暖代表逆溫蓋子夠厚、雲海穩定；快速轉冷代表逆溫層很薄，容易破碎消散
+    const inv2 = h.upperTemp850 - h.upperTemp;
+    const inv2Score = inv2 >= -1 ? 100 : clampLerp(inv2, -6, 0, -1, 100);
+    const inversionScore = inv1Score * 0.7 + inv2Score * 0.3;
+
     const humidityScore = h.upperHumidity >= 85 ? 100 : clampLerp(h.upperHumidity, 50, 0, 85, 100);
     const windScore = h.windSpeed <= 2 ? 100
       : h.windSpeed >= 5 ? 0
@@ -66,7 +74,8 @@
       score: Math.round(score),
       alert: score > 75,
       breakdown: {
-        inversion: { value: inversion, score: Math.round(inversionScore), weight: 0.5 },
+        inversion: { value: inv1, score: Math.round(inv1Score), weight: 0.5 * 0.7 },
+        inversionDepth: { value: inv2, score: Math.round(inv2Score), weight: 0.5 * 0.3 },
         upperHumidity: { value: h.upperHumidity, score: Math.round(humidityScore), weight: 0.25 },
         windSpeed: { value: h.windSpeed, score: Math.round(windScore), weight: 0.25 }
       }
@@ -128,19 +137,39 @@
     return best;
   }
 
-  function hourAt(hourly, index) {
+  function buildH(hourly, indices) {
+    const avg = (arr) => indices.reduce((s, i) => s + arr[i], 0) / indices.length;
     return {
-      cloudLow: hourly.cloudcover_low[index],
-      cloudMid: hourly.cloudcover_mid[index],
-      cloudHigh: hourly.cloudcover_high[index],
-      humidity: hourly.relativehumidity_2m[index],
-      visibility: hourly.visibility[index],
-      surfaceTemp: hourly.temperature_2m[index],
-      dewpoint: hourly.dewpoint_2m[index],
-      upperTemp: hourly.temperature_925hPa[index],
-      upperHumidity: hourly.relativehumidity_925hPa[index],
-      windSpeed: hourly.windspeed_10m[index] / 3.6 // km/h -> m/s，PRD門檻(4m/s)用m/s
+      cloudLow: avg(hourly.cloudcover_low),
+      cloudMid: avg(hourly.cloudcover_mid),
+      cloudHigh: avg(hourly.cloudcover_high),
+      humidity: avg(hourly.relativehumidity_2m),
+      visibility: avg(hourly.visibility),
+      surfaceTemp: avg(hourly.temperature_2m),
+      dewpoint: avg(hourly.dewpoint_2m),
+      upperTemp: avg(hourly.temperature_925hPa),
+      upperTemp850: avg(hourly.temperature_850hPa),
+      upperHumidity: avg(hourly.relativehumidity_925hPa),
+      windSpeed: avg(hourly.windspeed_10m) / 3.6 // km/h -> m/s，PRD門檻(4m/s)用m/s
     };
+  }
+
+  function hourAt(hourly, index) {
+    return buildH(hourly, [index]);
+  }
+
+  // 黃金時刻/藍調時刻有30-60分鐘區間，只抓最接近的單一小時容易被那一小時的
+  // 雜訊誤導；改成抓時間窗內每個整點資料算平均，結果更穩定。
+  // windowHours=1代表前後各抓1小時內的整點(Open-Meteo為逐小時資料)。
+  function hourAtWindow(hourly, centerDate, windowHours = 1) {
+    const center = centerDate.getTime();
+    const ms = windowHours * 3600000;
+    const indices = [];
+    hourly.time.forEach((t, i) => {
+      if (Math.abs(new Date(t).getTime() - center) <= ms) indices.push(i);
+    });
+    if (!indices.length) indices.push(nearestHourIndex(hourly, centerDate));
+    return buildH(hourly, indices);
   }
 
   window.WeatherMath = {
@@ -152,6 +181,7 @@
     cloudBaseAMSL,
     fetchHourlyWeather,
     nearestHourIndex,
-    hourAt
+    hourAt,
+    hourAtWindow
   };
 }());

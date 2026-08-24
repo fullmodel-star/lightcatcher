@@ -42,10 +42,10 @@ function check(name, cond) {
   check('[2] 理想條件觸發alert', good.alert === true);
 }
 
-// [3] 雲海指數：逆溫+高濕+微風應該高分；無逆溫+強風應該低分
+// [3] 雲海指數：逆溫(兩層都暖)+高濕+微風應該高分；無逆溫+強風應該低分
 {
-  const good = WM.seaOfCloudsScore({ surfaceTemp: 15, upperTemp: 20, upperHumidity: 90, windSpeed: 1.5 });
-  const bad = WM.seaOfCloudsScore({ surfaceTemp: 20, upperTemp: 15, upperHumidity: 30, windSpeed: 8 });
+  const good = WM.seaOfCloudsScore({ surfaceTemp: 15, upperTemp: 20, upperTemp850: 20.5, upperHumidity: 90, windSpeed: 1.5 });
+  const bad = WM.seaOfCloudsScore({ surfaceTemp: 20, upperTemp: 15, upperTemp850: 9, upperHumidity: 30, windSpeed: 8 });
   check('[3] 逆溫微風高分', good.score > 70);
   check('[3] 無逆溫強風低分', bad.score < 20);
   check('[3] good.score 落在0-100', good.score >= 0 && good.score <= 100);
@@ -55,9 +55,41 @@ function check(name, cond) {
 // [4] 反向斷言：分數函式不可回傳 NaN（邊界值0/100全都要能算）
 {
   const edge1 = WM.fieryGlowScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 0, visibility: 0 });
-  const edge2 = WM.seaOfCloudsScore({ surfaceTemp: 0, upperTemp: 0, upperHumidity: 0, windSpeed: 0 });
+  const edge2 = WM.seaOfCloudsScore({ surfaceTemp: 0, upperTemp: 0, upperTemp850: 0, upperHumidity: 0, windSpeed: 0 });
   check('[4] fieryGlow邊界值非NaN', !Number.isNaN(edge1.score));
   check('[4] seaOfClouds邊界值非NaN', !Number.isNaN(edge2.score));
+}
+
+// [7] 逆溫層厚度：850hPa續暖(厚逆溫)應該比850hPa快速轉冷(薄逆溫)分數高，
+// 即使兩者在925hPa的逆溫強度(inv1)完全一樣
+{
+  const thick = WM.seaOfCloudsScore({ surfaceTemp: 15, upperTemp: 20, upperTemp850: 21, upperHumidity: 70, windSpeed: 3 });
+  const thin = WM.seaOfCloudsScore({ surfaceTemp: 15, upperTemp: 20, upperTemp850: 12, upperHumidity: 70, windSpeed: 3 });
+  check('[7] 厚逆溫分數高於薄逆溫', thick.score > thin.score);
+  check('[7] breakdown有inversionDepth欄位', typeof thick.breakdown.inversionDepth.score === 'number');
+}
+
+// [8] hourAtWindow：時間窗內取平均，窗外的資料不應該被算進去
+{
+  const hourly = {
+    time: ['2026-08-24T06:00', '2026-08-24T07:00', '2026-08-24T08:00', '2026-08-24T09:00'],
+    cloudcover_low: [0, 20, 40, 100],
+    cloudcover_mid: [0, 0, 0, 0],
+    cloudcover_high: [0, 0, 0, 0],
+    relativehumidity_2m: [50, 50, 50, 50],
+    visibility: [10000, 10000, 10000, 10000],
+    temperature_2m: [20, 20, 20, 20],
+    dewpoint_2m: [10, 10, 10, 10],
+    temperature_925hPa: [20, 20, 20, 20],
+    temperature_850hPa: [20, 20, 20, 20],
+    relativehumidity_925hPa: [50, 50, 50, 50],
+    windspeed_10m: [7.2, 7.2, 7.2, 7.2] // 2 m/s
+  };
+  // 中心點08:00，±1小時應該只平均07:00/08:00/09:00 = (20+40+100)/3 = 53.33
+  const h = WM.hourAtWindow(hourly, new Date('2026-08-24T08:00'), 1);
+  check('[8] 時間窗平均排除窗外的06:00', Math.abs(h.cloudLow - 53.333) < 0.01);
+  const hSingle = WM.hourAt(hourly, 2);
+  check('[8] hourAt單點取值不變(仍為08:00的40)', hSingle.cloudLow === 40);
 }
 
 // [5] 觀星指數：晴空高分、滿天雲低分，且都落在0-100
