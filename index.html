@@ -35,6 +35,9 @@
   .muted{color:var(--steel);font-size:13px}
   .chip{background:var(--snow);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer}
   .chip.active{background:var(--k2);color:#fff;border-color:var(--k2)}
+  .chip-group{margin-top:12px}
+  .chip-group-title{font-size:12px;font-weight:600;color:var(--steel);margin-bottom:6px}
+  .chip-group .row{margin-top:0}
   .score-card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
   .score-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
   .score-icon{font-size:20px}
@@ -89,7 +92,7 @@
         <button class="secondary" id="btnManual">手動設定</button>
       </div>
       <p class="muted" style="margin:10px 0 6px">或直接選知名景點：</p>
-      <div class="row" id="spotChips"><span class="muted">載入景點中…</span></div>
+      <div id="spotChips"><span class="muted">載入景點中…</span></div>
     </div>
 
     <div class="card">
@@ -317,22 +320,42 @@
     return [...byKey.values()];
   }
 
+  const CHIP_GROUPS = [
+    { types: ['sea_of_clouds'], label: '☁️ 雲海景點' },
+    { types: ['sunrise', 'sunset'], label: '🌅🌇 日出日落景點' },
+    { types: ['stars'], label: '✨ 星空景點' }
+  ];
+
+  function chipHtml(loc, i) {
+    return `<button type="button" class="chip" data-i="${i}">${loc.types.map((t) => typeIcon[t] || '').join('')} ${loc.name}</button>`;
+  }
+
   async function loadSpotChips() {
     const container = document.getElementById('spotChips');
     const { data: spots, error } = await window.SB.from('spots').select('*').order('name');
     if (error) { container.innerHTML = `<span class="muted">景點載入失敗：${error.message}</span>`; return; }
     if (!spots || !spots.length) { container.innerHTML = '<span class="muted">目前尚無景點資料</span>'; return; }
     const locations = groupSpotsByLocation(spots);
-    container.innerHTML = locations.map((loc, i) =>
-      `<button type="button" class="chip" data-i="${i}">${loc.types.map((t) => typeIcon[t] || '').join('')} ${loc.name}</button>`
-    ).join('');
+
+    // 主題分類：同一地點若適用多主題(如武嶺=雲海+日落+星空)，會同時出現在好幾個分類底下方便找
+    container.innerHTML = CHIP_GROUPS.map((group) => {
+      const matched = locations
+        .map((loc, i) => ({ loc, i }))
+        .filter(({ loc }) => loc.types.some((t) => group.types.includes(t)));
+      if (!matched.length) return '';
+      return `<div class="chip-group">
+        <div class="chip-group-title">${group.label}</div>
+        <div class="row">${matched.map(({ loc, i }) => chipHtml(loc, i)).join('')}</div>
+      </div>`;
+    }).join('');
+
     container.querySelectorAll('.chip').forEach((btn) => {
       btn.addEventListener('click', () => {
         const loc = locations[Number(btn.dataset.i)];
         if (!loc) return;
         selectedSpot = loc;
         clearChipSelection();
-        btn.classList.add('active');
+        container.querySelectorAll(`.chip[data-i="${btn.dataset.i}"]`).forEach((b) => b.classList.add('active'));
         setCoords(loc.lat, loc.lng, loc.name);
         document.getElementById('btnWeather').click();
       });
