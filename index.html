@@ -663,7 +663,18 @@
   });
 
   // ---- service worker + 更新橫幅 ----
+  // 教訓(401登山管理平台踩過同一個坑)：長開分頁瀏覽器不會主動去檢查有沒有新版sw，
+  // 使用者一直開著同一個分頁就永遠停在第一次拿到的版本，導致新程式碼(HTML)配到
+  // 舊的快取JS檔案，功能對不起來就會出現「抓取失敗」。補上分頁重新可見時、以及
+  // 每20分鐘主動檢查一次，不要只靠瀏覽器自己的預設更新時機。
   if ('serviceWorker' in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+
     navigator.serviceWorker.register('./sw.js').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
@@ -675,8 +686,12 @@
       });
       document.getElementById('btnUpdate').addEventListener('click', () => {
         reg.waiting && reg.waiting.postMessage('SKIP_WAITING');
-        location.reload();
       });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
+      setInterval(() => reg.update().catch(() => {}), 20 * 60 * 1000);
     });
   }
 }());
