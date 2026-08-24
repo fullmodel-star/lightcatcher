@@ -35,9 +35,6 @@
   .muted{color:var(--steel);font-size:13px}
   .chip{background:var(--snow);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer}
   .chip.active{background:var(--k2);color:#fff;border-color:var(--k2)}
-  .chip-group{margin-top:12px}
-  .chip-group-title{font-size:12px;font-weight:600;color:var(--steel);margin-bottom:6px}
-  .chip-group .row{margin-top:0}
   .score-card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
   .score-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
   .score-icon{font-size:20px}
@@ -49,6 +46,10 @@
   .factor-bar > div{height:100%;border-radius:999px}
   .info-link{font-size:11px;color:var(--steel);text-decoration:none;white-space:nowrap}
   .info-link:hover{text-decoration:underline}
+  .popup-btn{margin-top:6px;padding:6px 10px;font-size:12px}
+  .secondary-details{margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
+  .secondary-details summary{cursor:pointer;font-size:13px;color:var(--steel);font-weight:600}
+  .secondary-details .score-card{opacity:.85}
   .placeholder{padding:40px 16px;text-align:center;color:var(--steel)}
   .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;padding:12px 16px;align-items:center;justify-content:space-between;font-size:13px}
   .update-bar button{padding:6px 12px;font-size:13px}
@@ -92,7 +93,10 @@
         <button class="secondary" id="btnManual">手動設定</button>
       </div>
       <p class="muted" style="margin:10px 0 6px">或直接選知名景點：</p>
-      <div id="spotChips"><span class="muted">載入景點中…</span></div>
+      <div class="row" id="spotChips"><span class="muted">載入景點中…</span></div>
+      <div class="row" style="margin-top:10px">
+        <a href="#map" class="info-link" style="font-size:13px">🗺️ 到地圖探索瀏覽全部景點 →</a>
+      </div>
     </div>
 
     <div class="card">
@@ -197,6 +201,7 @@
   // ---- 地圖探索 ----
   let mapInited = false;
   let leafletMap = null;
+  let mapLocations = [];
 
   function scoreColor(score) {
     if (score > 75) return '#A64B38';
@@ -232,6 +237,7 @@
     if (error) { statusEl.textContent = '載入失敗：' + error.message; return; }
     if (!spots || !spots.length) { statusEl.textContent = '目前還沒有熱點資料（可在Supabase跑seed.sql加幾筆）'; return; }
 
+    mapLocations = groupSpotsByLocation(spots);
     const typeLabels = { sunrise: '日出', sunset: '日落', sea_of_clouds: '雲海', stars: '星空' };
     const markers = [];
     let done = 0;
@@ -249,10 +255,12 @@
         const cb = window.WeatherMath.cloudBaseAMSL(scored.h, spot.min_elevation || 0);
         extra = `<br>雲海高度估計：約${cb.amslM}m（此機位${cb.amslM <= spot.min_elevation ? '在雲層之上✅' : '可能在雲層之下'}）`;
       }
+      const locIndex = mapLocations.findIndex((l) => l.name === spot.name && l.lat === spot.lat && l.lng === spot.lng);
       marker.bindPopup(
         `<strong>${spot.name}</strong><br>` +
         `類型：${typeLabels[spot.type] || spot.type}　海拔：${spot.min_elevation}m<br>` +
-        `今日機率：${scoreText}${extra}`
+        `今日機率：${scoreText}${extra}<br>` +
+        `<button class="popup-btn" onclick="goToSpotDetail(${locIndex})">📊 查看完整預測</button>`
       );
       markers.push(marker);
       done++;
@@ -268,6 +276,17 @@
     if (location.hash === '#map') initMapIfNeeded();
   });
   if (location.hash === '#map') initMapIfNeeded();
+
+  // 地圖popup的「查看完整預測」按鈕：把該地點設成首頁的目標地點並跳過去
+  window.goToSpotDetail = function (i) {
+    const loc = mapLocations[i];
+    if (!loc) return;
+    selectedSpot = loc;
+    clearChipSelection();
+    setCoords(loc.lat, loc.lng, loc.name);
+    location.hash = '#dashboard';
+    setTimeout(() => document.getElementById('btnWeather').click(), 100);
+  };
 
   // ---- 定位 ----
   let coords = null;
@@ -320,10 +339,11 @@
     return [...byKey.values()];
   }
 
-  const CHIP_GROUPS = [
-    { types: ['sea_of_clouds'], label: '☁️ 雲海景點' },
-    { types: ['sunrise', 'sunset'], label: '🌅🌇 日出日落景點' },
-    { types: ['stars'], label: '✨ 星空景點' }
+  // 首頁只放少數精選景點快選（涵蓋各主題+各地區），完整53個景點瀏覽交給地圖探索頁，
+  // 避免兩邊各放一份完整清單、首頁被撐成一大坨。
+  const FEATURED_NAMES = [
+    '武嶺', '小笠原山', '塔塔加遊客中心', '北大武山(檜谷/光明頂)',
+    '墾丁龍磐公園', '象山六巨石', '日月潭向山', '頂石棹'
   ];
 
   function chipHtml(loc, i) {
@@ -336,18 +356,11 @@
     if (error) { container.innerHTML = `<span class="muted">景點載入失敗：${error.message}</span>`; return; }
     if (!spots || !spots.length) { container.innerHTML = '<span class="muted">目前尚無景點資料</span>'; return; }
     const locations = groupSpotsByLocation(spots);
+    const featured = FEATURED_NAMES
+      .map((name) => locations.findIndex((l) => l.name === name))
+      .filter((i) => i >= 0);
 
-    // 主題分類：同一地點若適用多主題(如武嶺=雲海+日落+星空)，會同時出現在好幾個分類底下方便找
-    container.innerHTML = CHIP_GROUPS.map((group) => {
-      const matched = locations
-        .map((loc, i) => ({ loc, i }))
-        .filter(({ loc }) => loc.types.some((t) => group.types.includes(t)));
-      if (!matched.length) return '';
-      return `<div class="chip-group">
-        <div class="chip-group-title">${group.label}</div>
-        <div class="row">${matched.map(({ loc, i }) => chipHtml(loc, i)).join('')}</div>
-      </div>`;
-    }).join('');
+    container.innerHTML = featured.map((i) => chipHtml(locations[i], i)).join('') || '<span class="muted">目前尚無景點資料</span>';
 
     container.querySelectorAll('.chip').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -355,7 +368,7 @@
         if (!loc) return;
         selectedSpot = loc;
         clearChipSelection();
-        container.querySelectorAll(`.chip[data-i="${btn.dataset.i}"]`).forEach((b) => b.classList.add('active'));
+        btn.classList.add('active');
         setCoords(loc.lat, loc.lng, loc.name);
         document.getElementById('btnWeather').click();
       });
@@ -461,25 +474,39 @@
         ${factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score)}
         ${factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score)}
       </div>
+      <p class="muted" style="margin:8px 0 0">⚠️ 未考慮光害，市區或近城鎮地點實際觀星品質會比這個分數差很多。</p>
     </div>`;
   }
 
   function renderScoreCards(h, groundElevationM) {
     const container = document.getElementById('scoreCards');
     if (selectedSpot) {
-      // 一個地點可能同時對應多種現象(例如武嶺=雲海+日落+星空)，全部一起顯示
-      const cards = [];
-      if (selectedSpot.types.includes('sea_of_clouds')) {
-        cards.push(renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM));
+      // 主打現象(景點資料庫標記的類型)用大卡片；沒被標記但技術上算得出來的
+      // 另外1-2種現象，收進「附加參考」摺疊區塊，避免暗示這裡也是該現象的推薦景點
+      const types = selectedSpot.types;
+      const hasSea = types.includes('sea_of_clouds');
+      const hasGlow = types.includes('sunrise') || types.includes('sunset');
+      const hasStars = types.includes('stars');
+      const glowTitle = (types.includes('sunrise') ? '日出' : '日落') + '火燒雲指數';
+
+      let primary = '';
+      if (hasSea) primary += renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM);
+      if (hasGlow) primary += renderGlowCard(window.WeatherMath.fieryGlowScore(h), glowTitle);
+      if (hasStars) primary += renderStarsCard(window.WeatherMath.starsScore(h));
+
+      const secondary = [];
+      if (!hasSea) secondary.push(renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM));
+      if (!hasGlow) secondary.push(renderGlowCard(window.WeatherMath.fieryGlowScore(h), '日出/日落火燒雲指數'));
+      if (!hasStars) secondary.push(renderStarsCard(window.WeatherMath.starsScore(h)));
+
+      let html = primary;
+      if (secondary.length) {
+        html += `<details class="secondary-details">
+          <summary>📎 其他預測（附加參考，非本景點主打特色）</summary>
+          ${secondary.join('')}
+        </details>`;
       }
-      if (selectedSpot.types.includes('sunrise') || selectedSpot.types.includes('sunset')) {
-        const title = (selectedSpot.types.includes('sunrise') ? '日出' : '日落') + '火燒雲指數';
-        cards.push(renderGlowCard(window.WeatherMath.fieryGlowScore(h), title));
-      }
-      if (selectedSpot.types.includes('stars')) {
-        cards.push(renderStarsCard(window.WeatherMath.starsScore(h)));
-      }
-      container.innerHTML = cards.join('');
+      container.innerHTML = html;
     } else {
       container.innerHTML =
         renderGlowCard(window.WeatherMath.fieryGlowScore(h), '火燒雲指數') +
