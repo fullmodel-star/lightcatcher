@@ -64,11 +64,15 @@
   .legend{display:flex;gap:14px;font-size:12px;color:var(--steel);margin-top:8px;flex-wrap:wrap}
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-  .fc-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
-  .fc-row:last-child{border-bottom:none}
+  .fc-item{border-bottom:1px solid var(--line)}
+  .fc-item:last-child{border-bottom:none}
+  .fc-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+  .fc-item summary.fc-row{cursor:pointer}
   .fc-day{font-weight:600;font-size:14px;width:70px}
   .fc-scores{display:flex;gap:16px;font-size:13px}
   .fc-badge{padding:3px 9px;border-radius:999px;color:#fff;font-weight:700}
+  .fc-detail{padding-bottom:12px}
+  .fc-detail .score-card{margin-top:8px}
 </style>
 </head>
 <body>
@@ -744,49 +748,82 @@
     }
   }
 
+  // 每個現象抓自己那天真正合理的時刻，不是全部套同一個傍晚時間點——
+  // 火燒雲看傍晚黃金時刻、雲海看當天清晨黎明、觀星/琉璃光看當天入夜後，
+  // 這樣點開明細看到的因子拆解才對得起分數（之前全部用傍晚一個時間點算，
+  // 雲海/觀星/琉璃光的細節其實是錯誤時段的數據，只是沒有攤開來看不會發現）。
+  function scoreAtTarget(data, target, scoreFn) {
+    if (!(target instanceof Date) || Number.isNaN(target.getTime())) return null;
+    const idx = window.WeatherMath.nearestHourIndex(data.hourly, target);
+    const closestTime = new Date(data.hourly.time[idx]);
+    if (Math.abs(closestTime - target) >= 3 * 3600 * 1000) return null;
+    const h = window.WeatherMath.hourAtWindow(data.hourly, target);
+    return { result: scoreFn(h), h };
+  }
+
   function renderForecast3(data, lat, lng, groundElevationM) {
     const container = document.getElementById('forecast3');
     const dayLabels = ['明天', '後天', '大後天'];
     const now = new Date();
-    const rows = [];
+    const types = selectedSpot ? selectedSpot.types : null;
+    const showGlow = !types || types.includes('sunrise') || types.includes('sunset');
+    const showSea = !types || types.includes('sea_of_clouds');
+    const showStars = !types || types.includes('stars');
+    // 琉璃光跟其他三個不同：只在明確標記的地點顯示，不當「沒選景點時全部都算」的預設項目
+    const showLiuli = !!(types && types.includes('liuli_guang'));
+    const glowLabel = (types && types.includes('sunrise') ? '日出' : '日落') + '火燒雲指數';
+
+    const items = [];
     for (let i = 0; i < 3; i++) {
       const day = new Date(now);
       day.setDate(day.getDate() + i + 1);
       const times = window.WeatherMath.getGoldenBlueHours(day, lat, lng);
-      let target = times.duskGolden.start;
-      if (!(target instanceof Date) || Number.isNaN(target.getTime())) target = times.sunset;
-      if (!(target instanceof Date) || Number.isNaN(target.getTime())) {
-        rows.push(`<div class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="muted">此緯度無法計算</div></div>`);
-        continue;
-      }
-      const idx = window.WeatherMath.nearestHourIndex(data.hourly, target);
-      const closestTime = new Date(data.hourly.time[idx]);
-      const withinRange = Math.abs(closestTime - target) < 3 * 3600 * 1000;
-      if (!withinRange) {
-        rows.push(`<div class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="muted">超出預報範圍</div></div>`);
-        continue;
-      }
-      const h = window.WeatherMath.hourAtWindow(data.hourly, target);
+      const glowTarget = times.duskGolden.start instanceof Date && !Number.isNaN(times.duskGolden.start.getTime()) ? times.duskGolden.start : times.sunset;
+      const seaTarget = times.dawnGolden.start instanceof Date && !Number.isNaN(times.dawnGolden.start.getTime()) ? times.dawnGolden.start : times.sunrise;
+      const nightTarget = times.duskBlue.end;
+
       const badges = [];
-      const types = selectedSpot ? selectedSpot.types : null;
-      if (!types || types.includes('sunrise') || types.includes('sunset')) {
-        const glow = window.WeatherMath.fieryGlowScore(h);
-        badges.push(`<span class="fc-badge" style="background:${scoreColor(glow.score)}">🔥 ${glow.score}</span>`);
+      const details = [];
+
+      if (showGlow) {
+        const r = scoreAtTarget(data, glowTarget, window.WeatherMath.fieryGlowScore);
+        if (r) {
+          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">🔥 ${r.result.score}</span>`);
+          details.push(renderGlowCard(r.result, glowLabel));
+        }
       }
-      if (!types || types.includes('sea_of_clouds')) {
-        const sea = window.WeatherMath.seaOfCloudsScore(h);
-        badges.push(`<span class="fc-badge" style="background:${scoreColor(sea.score)}">☁️ ${sea.score}</span>`);
+      if (showSea) {
+        const r = scoreAtTarget(data, seaTarget, window.WeatherMath.seaOfCloudsScore);
+        if (r) {
+          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">☁️ ${r.result.score}</span>`);
+          details.push(renderSeaCard(r.result, r.h, groundElevationM));
+        }
       }
-      if (!types || types.includes('stars')) {
-        const stars = window.WeatherMath.starsScore(h);
-        badges.push(`<span class="fc-badge" style="background:${scoreColor(stars.score)}">✨ ${stars.score}</span>`);
+      if (showStars) {
+        const r = scoreAtTarget(data, nightTarget, window.WeatherMath.starsScore);
+        if (r) {
+          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">✨ ${r.result.score}</span>`);
+          details.push(renderStarsCard(r.result));
+        }
       }
-      rows.push(`<div class="fc-row">
-        <div class="fc-day">${dayLabels[i]}</div>
-        <div class="fc-scores">${badges.join('')}</div>
-      </div>`);
+      if (showLiuli) {
+        const r = scoreAtTarget(data, nightTarget, window.WeatherMath.liuliGuangScore);
+        if (r) {
+          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">💎 ${r.result.score}</span>`);
+          details.push(renderLiuliCard(r.result));
+        }
+      }
+
+      if (!badges.length) {
+        items.push(`<div class="fc-item"><div class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="muted">超出預報範圍或此緯度無法計算</div></div></div>`);
+        continue;
+      }
+      items.push(`<details class="fc-item">
+        <summary class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="fc-scores">${badges.join('')}</div></summary>
+        <div class="fc-detail">${details.join('')}</div>
+      </details>`);
     }
-    container.innerHTML = rows.join('');
+    container.innerHTML = items.join('');
   }
 
   // 氣象署即時觀測交叉驗證：跟我們自己算出來的預測放在一起對照，
