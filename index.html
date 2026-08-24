@@ -376,11 +376,27 @@
     document.querySelectorAll('#spotChips .chip').forEach((b) => b.classList.remove('active'));
   }
 
+  const LAST_LOCATION_KEY = 'lc_last_location_v1';
+
   function setCoords(lat, lng, source) {
     coords = { lat, lng };
     document.getElementById('locStatus').textContent = `${source}：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     document.getElementById('btnWeather').disabled = false;
     updateCountdown();
+    // 記住這次的地點，下次開啟App直接帶入不用重新選——GPS座標也一併記，
+    // 當作「上次那個位置」的預設值，不是每次都重新要求定位權限
+    try { localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify({ lat, lng, source, selectedSpot })); }
+    catch (e) { /* 存不進去(無痕視窗等)就放棄，不影響當次使用 */ }
+  }
+
+  // 開啟App時自動帶入上次的地點並直接抓氣象，不用使用者重新選一次
+  function restoreLastLocation() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(LAST_LOCATION_KEY)); } catch (e) { return; }
+    if (!saved || !Number.isFinite(saved.lat) || !Number.isFinite(saved.lng)) return;
+    selectedSpot = saved.selectedSpot || null;
+    setCoords(saved.lat, saved.lng, saved.source || '上次地點');
+    document.getElementById('btnWeather').click();
   }
 
   document.getElementById('btnLocate').addEventListener('click', () => {
@@ -462,6 +478,11 @@
         setCoords(loc.lat, loc.lng, loc.name);
         document.getElementById('btnWeather').click();
       });
+      // chips是非同步載入的，如果上次記住的地點剛好是精選景點之一，
+      // 補標記active讓畫面看起來跟現在顯示的預測一致，不會像沒選東西
+      if (selectedSpot && locations[Number(btn.dataset.i)].name === selectedSpot.name) {
+        btn.classList.add('active');
+      }
     });
   }
   loadSpotChips();
@@ -909,6 +930,8 @@
 
     attachConfidence(coords.lat, coords.lng);
   });
+
+  restoreLastLocation();
 
   // ---- service worker + 更新橫幅 ----
   // 教訓(401登山管理平台踩過同一個坑)：長開分頁瀏覽器不會主動去檢查有沒有新版sw，
