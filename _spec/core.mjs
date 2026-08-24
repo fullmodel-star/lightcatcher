@@ -114,5 +114,30 @@ function check(name, cond) {
   check('[6] AMSL = 地面高程 + AGL', amsl.amslM === 500 + amsl.aglM);
 }
 
+// [9] ensembleConfidence：成員分歧大應該給寬的信心區間、低信心；
+// 成員全部一致應該給窄區間、高信心
+{
+  function fakeEnsembleHourly(cloudLowByMember) {
+    const n = cloudLowByMember.length;
+    const hourly = { time: ['2026-08-24T12:00'] };
+    const fields = ['cloudcover_mid', 'cloudcover_high', 'relativehumidity_2m', 'visibility',
+      'temperature_2m', 'dewpoint_2m', 'temperature_925hPa', 'temperature_850hPa',
+      'relativehumidity_925hPa', 'windspeed_10m'];
+    for (let m = 1; m <= n; m++) {
+      const suffix = `_member${String(m).padStart(2, '0')}`;
+      hourly['cloudcover_low' + suffix] = [cloudLowByMember[m - 1]];
+      fields.forEach((f) => { hourly[f + suffix] = [f === 'temperature_925hPa' ? 20 : f === 'temperature_2m' ? 15 : 50]; });
+    }
+    return hourly;
+  }
+  const diverse = fakeEnsembleHourly([0, 20, 40, 60, 100]);
+  const uniform = fakeEnsembleHourly([50, 50, 50, 50, 50]);
+  const confDiverse = WM.ensembleConfidence(diverse, 0, WM.starsScore);
+  const confUniform = WM.ensembleConfidence(uniform, 0, WM.starsScore);
+  check('[9] 成員分歧時區間較寬', confDiverse.spread > confUniform.spread);
+  check('[9] 成員一致時信心為高', confUniform.level === '高');
+  check('[9] memberCount正確', confDiverse.memberCount === 5);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

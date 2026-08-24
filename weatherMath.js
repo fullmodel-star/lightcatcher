@@ -126,6 +126,57 @@
     return res.json();
   }
 
+  // ---- Ensemble(多組模式成員)：估算預測信心區間，不是取代主要預測 ----
+  // icon_seamless模式有40組成員，各自對雲量/氣溫等給不同數字，
+  // 成員之間分歧越大代表這組天氣現象越不確定，分歧小代表模式間有共識。
+  async function fetchEnsembleWeather(lat, lng, days = 2) {
+    const url = `https://ensemble-api.open-meteo.com/v1/ensemble?latitude=${lat}&longitude=${lng}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=${days}&models=icon_seamless`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Open-Meteo Ensemble API 錯誤：${res.status}`);
+    return res.json();
+  }
+
+  function ensembleMemberCount(hourly) {
+    let n = 0;
+    while (hourly[`cloudcover_low_member${String(n + 1).padStart(2, '0')}`]) n++;
+    return n;
+  }
+
+  function hAtMember(hourly, index, member) {
+    const suffix = member === 0 ? '' : `_member${String(member).padStart(2, '0')}`;
+    const get = (name) => hourly[name + suffix][index];
+    return {
+      cloudLow: get('cloudcover_low'),
+      cloudMid: get('cloudcover_mid'),
+      cloudHigh: get('cloudcover_high'),
+      humidity: get('relativehumidity_2m'),
+      visibility: get('visibility'),
+      surfaceTemp: get('temperature_2m'),
+      dewpoint: get('dewpoint_2m'),
+      upperTemp: get('temperature_925hPa'),
+      upperTemp850: get('temperature_850hPa'),
+      upperHumidity: get('relativehumidity_925hPa'),
+      windSpeed: get('windspeed_10m') / 3.6
+    };
+  }
+
+  // scoreFn是fieryGlowScore/seaOfCloudsScore/starsScore其中一個，
+  // 回傳80%成員落在的分數區間(p10~p90)，區間越窄代表模式間越有共識
+  function ensembleConfidence(hourly, index, scoreFn) {
+    const n = ensembleMemberCount(hourly);
+    if (!n) return null;
+    const scores = [];
+    for (let m = 1; m <= n; m++) {
+      scores.push(scoreFn(hAtMember(hourly, index, m)).score);
+    }
+    scores.sort((a, b) => a - b);
+    const p10 = scores[Math.floor(scores.length * 0.1)];
+    const p90 = scores[Math.min(scores.length - 1, Math.ceil(scores.length * 0.9))];
+    const spread = p90 - p10;
+    const level = spread <= 20 ? '高' : spread <= 40 ? '中等' : '低';
+    return { p10, p90, spread, level, memberCount: n };
+  }
+
   function nearestHourIndex(hourly, date) {
     const target = date.getTime();
     let best = 0;
@@ -215,6 +266,8 @@
     lclHeightAGL,
     cloudBaseAMSL,
     fetchHourlyWeather,
+    fetchEnsembleWeather,
+    ensembleConfidence,
     nearestHourIndex,
     hourAt,
     hourAtWindow,

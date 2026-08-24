@@ -166,7 +166,7 @@
     </div>
     <div class="card">
       <h2>誠實聲明</h2>
-      <p class="muted">預測資料來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API；首頁另外會顯示<a href="https://opendata.cwa.gov.tw" target="_blank">中央氣象署</a>最近測站的即時觀測數據當交叉對照(距離15公里內才會顯示，太遠的測站不具參考性)，這是實測值不是預測，跟我們的分數不一定完全吻合。上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。所有分數都是取目標時刻前後1小時內的資料平均，不是只看單一整點，減少單一小時雜訊誤判的機會。天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</p>
+      <p class="muted">預測資料來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API；首頁另外會顯示<a href="https://opendata.cwa.gov.tw" target="_blank">中央氣象署</a>最近測站的即時觀測數據當交叉對照(距離15公里內才會顯示，太遠的測站不具參考性)，這是實測值不是預測，跟我們的分數不一定完全吻合。每張分數卡下方的「🎯模型信心」是額外算的：拿約40組不同氣象模式的預測結果互相比較，落差小代表模式間有共識(信心高)，落差大代表這個時段天氣還很不確定(信心低)，不是分數本身的準確度保證。上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。所有分數都是取目標時刻前後1小時內的資料平均，不是只看單一整點，減少單一小時雜訊誤判的機會。天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</p>
     </div>
   </section>
 </main>
@@ -464,7 +464,7 @@
 
   function renderGlowCard(glow, title) {
     const b = glow.breakdown;
-    return `<div class="score-card">
+    return `<div class="score-card" data-concept="glow">
       <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(glow.score)}">${glow.score}</span></div>
       <div class="score-factors">
         ${factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score)}
@@ -473,6 +473,7 @@
         ${factorBar('能見度', Math.round(b.visibility.value / 1000) + 'km', b.visibility.score)}
       </div>
       ${glow.alert ? '<div class="ring-alert">🔥 大景預警</div>' : ''}
+      <div class="confidence-slot"></div>
     </div>`;
   }
 
@@ -486,7 +487,7 @@
         : diff < -100 ? `。你選的機位（${selectedSpot.min_elevation}m）可能在雲層之下，看不到雲海`
         : `。你選的機位（${selectedSpot.min_elevation}m）接近雲層高度，可能置身雲霧中`;
     }
-    return `<div class="score-card">
+    return `<div class="score-card" data-concept="sea">
       <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><a class="info-link" href="#about:sea">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(sea.score)}">${sea.score}</span></div>
       <div class="score-factors">
         ${factorBar('逆溫強度(925hPa較地面暖越好)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
@@ -496,18 +497,20 @@
       </div>
       <p class="muted" style="margin:8px 0 0">${heightNote}</p>
       ${sea.alert ? '<div class="ring-alert">☁️ 大景預警</div>' : ''}
+      <div class="confidence-slot"></div>
     </div>`;
   }
 
   function renderStarsCard(stars) {
     const b = stars.breakdown;
-    return `<div class="score-card">
+    return `<div class="score-card" data-concept="stars">
       <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(stars.score)}">${stars.score}</span></div>
       <div class="score-factors">
         ${factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score)}
         ${factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score)}
       </div>
       <p class="muted" style="margin:8px 0 0">⚠️ 未考慮光害，市區或近城鎮地點實際觀星品質會比這個分數差很多。</p>
+      <div class="confidence-slot"></div>
     </div>`;
   }
 
@@ -611,6 +614,28 @@
     card.style.display = 'block';
   }
 
+  // 模型信心區間：ensemble是額外的加分資訊，抓取失敗完全不影響主要預測結果
+  async function attachConfidence(lat, lng) {
+    try {
+      const ens = await window.WeatherMath.fetchEnsembleWeather(lat, lng, 2);
+      const idx = window.WeatherMath.nearestHourIndex(ens.hourly, new Date());
+      const scoreFns = {
+        sea: window.WeatherMath.seaOfCloudsScore,
+        glow: window.WeatherMath.fieryGlowScore,
+        stars: window.WeatherMath.starsScore
+      };
+      document.querySelectorAll('#scoreCards .score-card[data-concept]').forEach((card) => {
+        const fn = scoreFns[card.dataset.concept];
+        const slot = card.querySelector('.confidence-slot');
+        if (!fn || !slot) return;
+        const conf = window.WeatherMath.ensembleConfidence(ens.hourly, idx, fn);
+        if (conf) {
+          slot.innerHTML = `<p class="muted" style="margin-top:6px">🎯 模型信心：<b>${conf.level}</b>（${conf.memberCount}組模式中80%落在${conf.p10}~${conf.p90}分）</p>`;
+        }
+      });
+    } catch (e) { /* 信心區間抓取失敗就不顯示，不用報錯打擾使用者 */ }
+  }
+
   document.getElementById('btnWeather').addEventListener('click', async () => {
     if (!coords) return;
     const statusEl = document.getElementById('weatherStatus');
@@ -633,6 +658,8 @@
       const obs = await window.WeatherMath.nearestCwaStation(coords.lat, coords.lng);
       renderCwaRef(obs);
     } catch (e) { document.getElementById('cwaRefCard').style.display = 'none'; }
+
+    attachConfidence(coords.lat, coords.lng);
   });
 
   // ---- service worker + 更新橫幅 ----
