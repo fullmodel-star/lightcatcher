@@ -18,6 +18,12 @@
 - 「預測說明」頁：每個指數的計算邏輯、權重、資料來源，白紙黑字寫清楚建立可信度
 - 稜線品牌footer + PWA安裝按鈕 + 正式icon(`sunset-2`)
 
+### 準確度改善（2026-08-24，老闆點名「怎麼讓預測更準」後一次做4項）
+1. **逆溫層厚度**：雲海指數原本只比較地面vs925hPa，現在加上850hPa判斷逆溫「蓋子」夠不夠厚（蓋子薄容易破碎消散）
+2. **CWA即時觀測交叉驗證**：接中央氣象署O-A0003-001「現在天氣觀測報告」(363測站)，顯示最近測站(15km內)的實際觀測當對照，**金鑰走`_worker/`代理不落前端**（比照401 alpineplan-weather的作法），已部署`lightcatcher-cwa.fullmodel.workers.dev`
+3. **時間窗平均**：所有評分改用`hourAtWindow()`取目標時刻前後1小時整點資料平均，不再只看單一整點
+4. **模型信心區間**：用Open-Meteo ensemble API(icon_seamless，約40組模式成員)算80%信心區間，落差小顯示「信心高」，是不確定性的誠實揭露不是準確度保證
+
 ### 2026-08-24 拿掉的功能（老闆實測後回饋：越簡單越好，不要帳號門檻）
 Email magic-link登入、訂閱熱點+推播通知(Web Push/VAPID/Edge Function `check-alerts`)、打卡回報+照片上傳+即時動態牆——**整套移除**，不是隱藏。Supabase的`profiles`/`subscriptions`/`push_subscriptions`/`reports`表還在（沒刪，怕未來要用），但前端完全不呼叫；Edge Function與相關GitHub Actions workflow已刪除。`spots`表繼續用（地圖與首頁快選都靠它），這是唯一還在用的後端功能，所以Supabase**還是需要**、免費保活排程(`keepalive.yml`)也還是需要。
 
@@ -45,12 +51,23 @@ npx wrangler pages deploy . --project-name=lightcatcher --branch main --commit-d
 
 `_tools\build-staging.mjs` 排除 `_*`／`.md`／`.sql`／`.py`／`.git`／`.github`／`supabase`／`brand.config.json`，自帶「sw.js ASSETS都在staging」與「無底線路徑外洩」兩道檢查，沒過會`exit 1`。**不要手打glob**。
 
+### CWA代理Worker（`_worker/`）
+
+```
+cd _worker
+npx wrangler deploy --config wrangler.toml
+npx wrangler secret put CWA_KEY --config wrangler.toml   # 貼CWA_A7240...那組授權碼
+```
+
+已上線：`https://lightcatcher-cwa.fullmodel.workers.dev/observations`。CWA_KEY是老闆個人帳號的授權碼（opendata.cwa.gov.tw申請），**只存在Worker secret，不落任何前端檔案／git**。快取10分鐘（CWA自動測站約10分鐘更新一次）。
+
 ## 品牌 icon
 
 Tabler `sunset-2`（地平線+半圓落日），家族色 `#A64B38`。已登記進 `05_品牌資源\03_App圖示_正式檔\02_安裝icon_其他家族\_README.md` 並產出正式檔（`icon-192.png`/`icon-512.png`），簽名帶檢測通過。
 
 ## 更新記錄
 
+- 2026-08-24 v0.6：準確度改善4項——850hPa逆溫層厚度、CWA即時觀測交叉驗證(`_worker/`代理)、時間窗平均、ensemble模型信心區間。單元測試29項全過。
 - 2026-08-24 v0.5：**產品方向大改版**——拿掉登入/訂閱/推播/打卡回報整套機制，全站開放瀏覽；機率預測改分開呈現+因子拆解，新增雲海高度估算(LCL公式)、觀星指數、首頁景點快選、預測說明頁；`seed.sql`從17個佔位景點換成53個老闆親自研究的景點（66筆，含多現象拆列），海拔以Open-Meteo API查詢為主、4個點依老闆給的明確數字覆蓋(API山區格點常低估)。
 - 2026-08-23 v0.4：上線 https://lightcatcher.pages.dev/（wrangler Pages，Production/main實測確認）。新增`_tools\build-staging.mjs`。
 - 2026-08-23 v0.3：完成 Phase 6。套用稜線品牌識別(footer+安裝按鈕)＋正式icon(sunset-2)，Phase 0-6全部完成。
