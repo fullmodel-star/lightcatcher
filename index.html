@@ -114,6 +114,11 @@
       <div id="scoreCards"></div>
     </div>
 
+    <div class="card" id="cwaRefCard" style="display:none">
+      <h2>🛰️ 氣象署即時觀測參考</h2>
+      <div id="cwaRefBody" class="muted"></div>
+    </div>
+
     <div class="card">
       <h2>未來三日預測（傍晚黃金時刻）</h2>
       <div id="forecast3" class="muted">先抓取上方機率預測後才會一起算出來</div>
@@ -161,7 +166,7 @@
     </div>
     <div class="card">
       <h2>誠實聲明</h2>
-      <p class="muted">氣象資料全部來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API。上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。所有分數都是取目標時刻前後1小時內的資料平均，不是只看單一整點，減少單一小時雜訊誤判的機會。天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</p>
+      <p class="muted">預測資料來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API；首頁另外會顯示<a href="https://opendata.cwa.gov.tw" target="_blank">中央氣象署</a>最近測站的即時觀測數據當交叉對照(距離15公里內才會顯示，太遠的測站不具參考性)，這是實測值不是預測，跟我們的分數不一定完全吻合。上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。所有分數都是取目標時刻前後1小時內的資料平均，不是只看單一整點，減少單一小時雜訊誤判的機會。天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</p>
     </div>
   </section>
 </main>
@@ -588,6 +593,24 @@
     container.innerHTML = rows.join('');
   }
 
+  // 氣象署即時觀測交叉驗證：跟我們自己算出來的預測放在一起對照，
+  // 不是取代預測——單一測站失敗不該擋住主要預測結果，所以獨立try/catch
+  function renderCwaRef(obs) {
+    const card = document.getElementById('cwaRefCard');
+    const body = document.getElementById('cwaRefBody');
+    if (!obs) { card.style.display = 'none'; return; }
+    const tempText = Number.isFinite(obs.temperature) && obs.temperature > -90 ? `${obs.temperature}°C` : '無資料';
+    const humidityText = Number.isFinite(obs.humidity) && obs.humidity >= 0 ? `${obs.humidity}%` : '無資料';
+    const visText = obs.visibility && !String(obs.visibility).includes('-99') ? `${obs.visibility}km` : '無資料';
+    const weatherText = obs.weather && obs.weather !== '-99' ? obs.weather : '無資料';
+    body.innerHTML =
+      `最近測站：<b>${obs.name}</b>（距離${obs.distanceKm}km，海拔${obs.elevation}m）<br>` +
+      `目前天氣現象：${weatherText}　能見度：${visText}<br>` +
+      `氣溫：${tempText}　濕度：${humidityText}　觀測時間：${obs.obsTime || '未知'}<br>` +
+      `<span style="font-size:11px">這是氣象署測站的實際觀測值，不是我們的預測——可以互相對照，如果跟上面的預測差很多，代表模型在這個地點可能有誤差。</span>`;
+    card.style.display = 'block';
+  }
+
   document.getElementById('btnWeather').addEventListener('click', async () => {
     if (!coords) return;
     const statusEl = document.getElementById('weatherStatus');
@@ -605,6 +628,11 @@
     } catch (err) {
       statusEl.textContent = '抓取失敗：' + err.message;
     }
+
+    try {
+      const obs = await window.WeatherMath.nearestCwaStation(coords.lat, coords.lng);
+      renderCwaRef(obs);
+    } catch (e) { document.getElementById('cwaRefCard').style.display = 'none'; }
   });
 
   // ---- service worker + 更新橫幅 ----

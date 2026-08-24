@@ -172,6 +172,41 @@
     return buildH(hourly, indices);
   }
 
+  // ---- 中央氣象署(CWA)即時觀測交叉驗證 ----
+  // 金鑰不能放前端，走自己的Cloudflare Worker代理(_worker/worker.js)，
+  // 這裡只呼叫代理網址。用途是「跟我們的預測互相對照」不是取代預測。
+  const CWA_WORKER = 'https://lightcatcher-cwa.fullmodel.workers.dev';
+  let _cwaStationsCache = null;
+
+  async function fetchCwaObservations() {
+    if (_cwaStationsCache) return _cwaStationsCache;
+    const res = await fetch(`${CWA_WORKER}/observations`);
+    if (!res.ok) throw new Error(`CWA代理錯誤：${res.status}`);
+    const data = await res.json();
+    _cwaStationsCache = data.stations;
+    return _cwaStationsCache;
+  }
+
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371, rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+
+  // 找最近的CWA測站，超過maxKm就視為沒有可比對的測站(回傳null)，
+  // 不要拿太遠的測站資料冒充「這裡」的即時狀況
+  async function nearestCwaStation(lat, lng, maxKm = 15) {
+    const stations = await fetchCwaObservations();
+    let best = null, bestDist = Infinity;
+    stations.forEach((s) => {
+      const d = haversineKm(lat, lng, s.lat, s.lng);
+      if (d < bestDist) { bestDist = d; best = s; }
+    });
+    if (!best || bestDist > maxKm) return null;
+    return Object.assign({}, best, { distanceKm: Math.round(bestDist * 10) / 10 });
+  }
+
   window.WeatherMath = {
     getGoldenBlueHours,
     fieryGlowScore,
@@ -182,6 +217,7 @@
     fetchHourlyWeather,
     nearestHourIndex,
     hourAt,
-    hourAtWindow
+    hourAtWindow,
+    nearestCwaStation
   };
 }());

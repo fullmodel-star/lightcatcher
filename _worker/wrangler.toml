@@ -1,0 +1,6 @@
+name = "lightcatcher-cwa"
+main = "worker.js"
+compatibility_date = "2026-08-24"
+
+# CWA_KEY用secret存，不放這裡：
+#   npx wrangler secret put CWA_KEY --config _worker/wrangler.toml
