@@ -119,6 +119,31 @@
     };
   }
 
+  // 琉璃光：夜間/清晨谷地被逆溫鎖住的霧，把下方城鎮燈光暈染成七彩朦朧光暈
+  // （南投金龍山最出名，同一套「逆溫困住谷地水氣」機制其實跟雲海一樣，
+  // 差別在雲海是白天看反光、琉璃光是夜間看谷地燈光透霧，且需要谷地本身有城鎮燈源）。
+  // 跟雲海不同的地方是霧「濃度」要恰到好處：太稀薄看不出暈染感、太濃燈光整個被擋住，
+  // 所以能見度用三角形評分抓一個甜蜜區間，不是越低越好。
+  function liuliGuangScore(h) {
+    const inv1 = h.upperTemp - h.surfaceTemp;
+    const inversionScore = inv1 > 0 ? clampLerp(inv1, 0, 50, 6, 100) : clampLerp(inv1, -6, 0, 0, 50);
+    const visibilityScore = triangleScore(h.visibility, 100, 500, 3000, 6000);
+    const windScore = h.windSpeed <= 2 ? 100 : h.windSpeed >= 5 ? 0 : clampLerp(h.windSpeed, 2, 100, 5, 0);
+    // 逆溫、能見度都是「有沒有霧可言」的先決條件，不是可以互相彌補的加權平均——
+    // 沒有逆溫就沒有困住的霧、能見度太差燈光整個被擋住，任一個是0整體就該掉到接近0，
+    // 所以用乘法而非加權平均；風速則是輔助修正(乘法但保底0.6，強風也不會直接歸零)。
+    const score = inversionScore * (visibilityScore / 100) * (0.6 + 0.4 * windScore / 100);
+    return {
+      score: Math.round(score),
+      alert: score > 75,
+      breakdown: {
+        inversion: { value: inv1, score: Math.round(inversionScore), weight: 0.5 },
+        visibility: { value: h.visibility, score: Math.round(visibilityScore), weight: 0.35 },
+        windSpeed: { value: h.windSpeed, score: Math.round(windScore), weight: 0.15 }
+      }
+    };
+  }
+
   // 雲海高度估算：LCL(凝結高度) ≈ 125 × (地面氣溫 − 露點溫度)公尺，氣象學經典估算式(Espy's equation)。
   // 回傳離地高度(AGL)；要換算成海拔(AMSL)需再加地面高程，見cloudBaseAMSL。
   function lclHeightAGL(surfaceTemp, dewpoint) {
@@ -285,6 +310,7 @@
     seaOfCloudsScore,
     starsScore,
     blueHourScore,
+    liuliGuangScore,
     lclHeightAGL,
     cloudBaseAMSL,
     fetchHourlyWeather,

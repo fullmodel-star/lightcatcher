@@ -181,6 +181,16 @@
       <h2>✨ 觀星指數</h2>
       <p class="muted">總雲量(70%，越少越好)＋濕度代表的霾害程度(30%)。這個指數目前<b>不考慮光害</b>，市區觀星實際感受會比分數差很多。</p>
     </div>
+    <div class="card" id="section-liuli">
+      <h2>💎 琉璃光指數</h2>
+      <p class="muted">谷地被逆溫鎖住的霧，把下方城鎮燈光暈染成七彩朦朧光暈的夜間景象(南投金龍山最著名)。跟雲海是同一種「逆溫困住谷地水氣」機制，差別是雲海白天看日光反射、琉璃光夜間看谷地燈光透霧：</p>
+      <ul class="muted" style="padding-left:18px;margin:6px 0">
+        <li><b>逆溫強度</b>：比較地面氣溫與925hPa氣溫，判斷谷地有沒有被蓋住(邏輯同雲海)</li>
+        <li><b>能見度</b>：跟雲海不同，這裡要「剛剛好」——500~3000m最佳，太清澈看不出燈光暈染的朦朧感，太濃(&lt;100m)燈光會被完全擋住看不到</li>
+        <li><b>地表風速</b>：≤2m/s最佳，風大會把霧吹散打亂暈染效果</li>
+      </ul>
+      <p class="muted">⚠️這個指數<b>只在資料庫明確標記過「谷地下方有城鎮燈光」的地點</b>顯示（例如金龍山），不像雲海/觀星可以套用在任何地點當附加參考——因為公式算不出你所在的谷地下方到底有沒有城鎮燈光，硬套會給出沒有意義的假分數。</p>
+    </div>
     <div class="card">
       <h2>誠實聲明</h2>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
@@ -189,6 +199,7 @@
         <li>每張分數卡下方的「🎯模型信心」是額外算的：拿約40組不同氣象模式的預測結果互相比較，落差小代表模式間有共識(信心高)，落差大代表這個時段天氣還很不確定(信心低)，<b>不是分數本身的準確度保證</b>。</li>
         <li>上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。</li>
         <li>所有分數都是取目標時刻前後1小時內的資料平均，不是只看單一整點，減少單一小時雜訊誤判的機會。</li>
+        <li>💎琉璃光指數只在資料庫明確標記過「谷地下方有城鎮燈光」的地點顯示(目前只有金龍山)，不像雲海/觀星可以套用在任何地點當附加參考。</li>
         <li>天氣本質上有不確定性，分數僅供行程規劃參考，出發前請自行確認最新天氣狀況與路況安全。</li>
       </ul>
     </div>
@@ -246,6 +257,7 @@
       hasSea: loc.types.includes('sea_of_clouds'),
       hasGlow: loc.types.includes('sunrise') || loc.types.includes('sunset'),
       hasStars: loc.types.includes('stars'),
+      hasLiuli: loc.types.includes('liuli_guang'),
       glowLabel: loc.types.includes('sunrise') ? '日出' : '日落'
     };
   }
@@ -263,6 +275,10 @@
   function starsLine(h) {
     const stars = window.WeatherMath.starsScore(h);
     return `✨ 觀星：<b style="color:${scoreColor(stars.score)}">${stars.score}分</b>（未算光害）`;
+  }
+  function liuliLine(h) {
+    const liuli = window.WeatherMath.liuliGuangScore(h);
+    return `💎 琉璃光：<b style="color:${scoreColor(liuli.score)}">${liuli.score}分</b>（夜間谷地起霧+燈光暈染，需親臨現場確認）`;
   }
 
   async function initMapIfNeeded() {
@@ -285,7 +301,7 @@
     const markers = [];
     let done = 0;
     await Promise.all(mapLocations.map(async (loc, i) => {
-      const { hasSea, hasGlow, hasStars, glowLabel } = locationConcepts(loc);
+      const { hasSea, hasGlow, hasStars, hasLiuli, glowLabel } = locationConcepts(loc);
       let color = '#BECBD5';
       let popupBody = '無法計算（氣象資料抓取失敗）';
       try {
@@ -298,11 +314,15 @@
         if (hasSea) primaryLines.push(seaLine(h, groundElevationM)); else secondaryLines.push(seaLine(h, groundElevationM));
         if (hasGlow) primaryLines.push(glowLine(h, glowLabel)); else secondaryLines.push(glowLine(h, '日出/日落'));
         if (hasStars) primaryLines.push(starsLine(h)); else secondaryLines.push(starsLine(h));
+        // 琉璃光需要「谷地下方有城鎮燈光」這個地形前提，氣象資料算不出來，
+        // 只給資料庫明確標記過的地點看，不像雲海/觀星可以無條件當附加參考顯示給所有地點
+        if (hasLiuli) primaryLines.push(liuliLine(h));
 
         const scores = [];
         if (hasSea) scores.push(window.WeatherMath.seaOfCloudsScore(h).score);
         if (hasGlow) scores.push(window.WeatherMath.fieryGlowScore(h).score);
         if (hasStars) scores.push(window.WeatherMath.starsScore(h).score);
+        if (hasLiuli) scores.push(window.WeatherMath.liuliGuangScore(h).score);
         color = scoreColor(Math.max(...scores));
 
         popupBody = primaryLines.join('<br>') +
@@ -391,7 +411,7 @@
   });
 
   // ---- 知名景點快選（同一地點若有多種現象，合併成一個按鈕，選中後全部一起顯示） ----
-  const typeIcon = { sunrise: '🌅', sunset: '🌇', sea_of_clouds: '☁️', stars: '✨' };
+  const typeIcon = { sunrise: '🌅', sunset: '🌇', sea_of_clouds: '☁️', stars: '✨', liuli_guang: '💎' };
 
   function groupSpotsByLocation(spots) {
     const byKey = new Map();
@@ -409,7 +429,7 @@
   // 避免兩邊各放一份完整清單、首頁被撐成一大坨。
   const FEATURED_NAMES = [
     '武嶺', '小笠原山', '塔塔加遊客中心', '北大武山(檜谷/光明頂)',
-    '墾丁龍磐公園', '象山六巨石', '日月潭向山', '頂石棹'
+    '墾丁龍磐公園', '象山六巨石', '日月潭向山', '頂石棹', '金龍山'
   ];
 
   function chipHtml(loc, i) {
@@ -450,9 +470,10 @@
     glow: { icon: '🔥', label: '火燒雲', scoreFn: window.WeatherMath.fieryGlowScore },
     sea: { icon: '☁️', label: '雲海', scoreFn: window.WeatherMath.seaOfCloudsScore },
     stars: { icon: '✨', label: '觀星', scoreFn: window.WeatherMath.starsScore },
-    blue: { icon: '💙', label: '藍調時刻', scoreFn: window.WeatherMath.blueHourScore }
+    blue: { icon: '💙', label: '藍調時刻', scoreFn: window.WeatherMath.blueHourScore },
+    liuli: { icon: '💎', label: '琉璃光', scoreFn: window.WeatherMath.liuliGuangScore }
   };
-  const TYPE_TO_KIND = { sunrise: 'glow', sunset: 'glow', sea_of_clouds: 'sea', stars: 'stars' };
+  const TYPE_TO_KIND = { sunrise: 'glow', sunset: 'glow', sea_of_clouds: 'sea', stars: 'stars', liuli_guang: 'liuli' };
 
   function todayKey() {
     const d = new Date();
@@ -472,7 +493,7 @@
   }
 
   // 找「下一次」該現象的時間點：今天的還沒過(含1小時緩衝)就用今天，過了就用明天。
-  // 火燒雲抓傍晚黃金時刻、雲海抓清晨黎明、觀星抓天文昏影結束(真正入夜)、
+  // 火燒雲抓傍晚黃金時刻、雲海抓清晨黎明、觀星/琉璃光都需要真正入夜(天文昏影結束)才看得到，
   // 藍調時刻一天有晨昏兩段，取離現在最近的下一段(邏輯比照倒數計時器的nextEvent)。
   function nextPhenomenonTime(lat, lng, kind) {
     const now = new Date();
@@ -486,7 +507,7 @@
     let candidates;
     if (kind === 'blue') {
       candidates = [today.dawnBlue.start, today.duskBlue.start, tomorrow.dawnBlue.start, tomorrow.duskBlue.start];
-    } else if (kind === 'stars') {
+    } else if (kind === 'stars' || kind === 'liuli') {
       candidates = [today.duskBlue.end, tomorrow.duskBlue.end];
     } else {
       const field = { glow: 'duskGolden', sea: 'dawnGolden' }[kind];
@@ -667,6 +688,21 @@
     </div>`;
   }
 
+  function renderLiuliCard(liuli) {
+    const b = liuli.breakdown;
+    return `<div class="score-card" data-concept="liuli">
+      <div class="score-head"><span class="score-icon">💎</span><span class="score-title">琉璃光指數</span><a class="info-link" href="#about:liuli">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(liuli.score)}">${liuli.score}</span></div>
+      <div class="score-factors">
+        ${factorBar('逆溫強度(谷地夠不夠鎖霧)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
+        ${factorBar('能見度(500-3000m最佳)', Math.round(b.visibility.value) + 'm', b.visibility.score)}
+        ${factorBar('地表風速(靜穩最佳)', b.windSpeed.value.toFixed(1) + 'm/s', b.windSpeed.score)}
+      </div>
+      <p class="muted" style="margin:8px 0 0">⚠️ 需要谷地下方剛好有城鎮燈光被霧暈染，這是這個地點的地形特色，換一個沒有城鎮燈光的谷地公式算出高分也沒有意義。</p>
+      ${liuli.alert ? '<div class="ring-alert">💎 大景預警</div>' : ''}
+      <div class="confidence-slot"></div>
+    </div>`;
+  }
+
   function renderScoreCards(h, groundElevationM) {
     const container = document.getElementById('scoreCards');
     if (selectedSpot) {
@@ -676,13 +712,17 @@
       const hasSea = types.includes('sea_of_clouds');
       const hasGlow = types.includes('sunrise') || types.includes('sunset');
       const hasStars = types.includes('stars');
+      const hasLiuli = types.includes('liuli_guang');
       const glowTitle = (types.includes('sunrise') ? '日出' : '日落') + '火燒雲指數';
 
       let primary = '';
       if (hasSea) primary += renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM);
       if (hasGlow) primary += renderGlowCard(window.WeatherMath.fieryGlowScore(h), glowTitle);
       if (hasStars) primary += renderStarsCard(window.WeatherMath.starsScore(h));
+      if (hasLiuli) primary += renderLiuliCard(window.WeatherMath.liuliGuangScore(h));
 
+      // 琉璃光需要「谷地下方有城鎮燈光」的地形前提，沒被標記就代表這裡沒有這個條件，
+      // 不像雲海/觀星那樣可以無條件當「附加參考」塞給任何景點看
       const secondary = [];
       if (!hasSea) secondary.push(renderSeaCard(window.WeatherMath.seaOfCloudsScore(h), h, groundElevationM));
       if (!hasGlow) secondary.push(renderGlowCard(window.WeatherMath.fieryGlowScore(h), '日出/日落火燒雲指數'));

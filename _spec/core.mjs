@@ -112,6 +112,18 @@ function check(name, cond) {
   check('[5b] bad.score 落在0-100', bad.score >= 0 && bad.score <= 100);
 }
 
+// [5c] 琉璃光指數：有逆溫+能見度落在甜蜜區間(500-3000m)+無風應該高分；
+// 完全無逆溫(晴空)或能見度太差(濃到看不見)都應該低分，且都落在0-100
+{
+  const good = WM.liuliGuangScore({ upperTemp: 20, surfaceTemp: 10, visibility: 1500, windSpeed: 1 });
+  const noInversion = WM.liuliGuangScore({ upperTemp: 10, surfaceTemp: 20, visibility: 1500, windSpeed: 1 });
+  const tooFoggy = WM.liuliGuangScore({ upperTemp: 20, surfaceTemp: 10, visibility: 50, windSpeed: 1 });
+  check('[5c] 逆溫+適中霧況高分', good.score > 70);
+  check('[5c] 沒有逆溫(晴空)低分', noInversion.score < 40);
+  check('[5c] 霧太濃(能見度太差)低分', tooFoggy.score < 20);
+  check('[5c] good.score 落在0-100', good.score >= 0 && good.score <= 100);
+}
+
 // [6] 雲海高度估算(LCL)：氣溫露點差越大，雲底越高；差為0時應為0(飽和/貼地霧)
 {
   const dry = WM.lclHeightAGL(25, 10); // 差15度
