@@ -45,6 +45,9 @@ Email magic-link登入、訂閱熱點+推播通知(Web Push/VAPID/Edge Function 
 ### GPS定位錯誤訊息改善（同日，老闆回報「使用目前位置」疑似失敗）
 `getCurrentPosition`原本沒設timeout，遇到裝置沒回應時會無限卡在「定位中…」；也沒用`error.code`分辨失敗原因，一律顯示「定位失敗」。改成10秒逾時＋依code給明確訊息(權限被拒/裝置無法定位/逾時)。用Puppeteer模擬CDP授權/拒絕定位權限兩種情境驗證過都正常運作——但**headless測試模擬不到真實裝置的定位權限彈窗行為**，如果老闆是直接雙擊打開本機`index.html`(file://)測試，Chrome對file://來源的定位API預設會直接擋掉(不會跳權限詢問)，這種情況要改用`https://lightcatcher.pages.dev/`正式站測試才準。
 
+### 記住上次選的地點（同日，老闆要求「不用選」）
+`setCoords()`每次呼叫都把`{lat,lng,source,selectedSpot}`存進localStorage(`lc_last_location_v1`)，開啟App時`restoreLastLocation()`自動讀回並直接觸發抓取氣象，不用重新選一次。因為GPS/手動輸入/景點快選/地圖popup/今日推薦點進來全部都經過同一個`setCoords()`，這個記憶邏輯自然涵蓋所有選地點的路徑。**是per-browser的localStorage，不是登入後跨裝置同步**——換瀏覽器/清快取會回到「尚未定位」。
+
 ### 待確認
 - GPS定位互動、真人實際使用體驗——headless測試模擬不到
 - 評分公式係數仍是方向性估計值，不是驗證過的氣象公式
