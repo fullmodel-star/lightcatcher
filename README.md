@@ -4,7 +4,7 @@
 
 原始需求：React Native+Expo+Supabase PRD，討論後改走純PWA。**2026-08-24 產品方向大幅簡化**（老闆實測後回饋）：拿掉Email登入/訂閱熱點/推播通知/打卡回報整套機制，全站改成完全開放瀏覽不用帳號；改成「首頁景點快選＋分開呈現各指數＋因子拆解＋雲海高度估算＋預測方法說明頁」，強調專業感與簡單操作。現在有4個畫面：首頁/地圖探索/預測說明/自訂選項。
 
-## 現況：v0.5（產品方向大改版後）
+## 現況：v0.7
 
 **已上線 https://lightcatcher.pages.dev/**，4個畫面：首頁／地圖探索／預測說明／自訂選項。
 
@@ -91,6 +91,15 @@ Tabler `sunset-2`（地平線+半圓落日），家族色 `#A64B38`。已登記�
 
 ## 更新記錄
 
+- 2026-08-25 v0.8：**補 apple-touch-icon**——PWA/icon 稽核抓到 `index.html` 沒有
+  `<link rel="apple-touch-icon">`，`icon-180.png` 也不存在（實測 `icon-180.png`
+  回來的是 Cloudflare SPA fallback 的 200 HTML，不是圖片），導致 iOS「加入主
+  畫面」抓不到正確 icon、退化成畫面截圖縮圖。從 `icon-512.png` 裁成 180×180、
+  補上品牌色（`#A64B38`）不透明底（apple-touch-icon 不吃透明背景），加進
+  `index.html` 連結標籤與 `sw.js` 的 ASSETS 預先快取清單，快取版號 v21→v22。
+  已跑 `_tools\build-staging.mjs`（14 項 ASSETS 都在）→ wrangler 部署確認上線，
+  `curl` 實測 `icon-180.png` 回 `content-type: image/png`。
+- 2026-08-24 v0.7：**品牌識別稽核修正**——老闆截圖回報首頁頁簽 active 狀態是家族赤陶紅（`#A64B38`），違反 `ridgeline-tokens.json` 的 `family_color_scope`（家族色只能用在 icon 底色/家族頁 hero，內頁 UI 一律岩藍九階；401 山行計畫 v2.19 已做過同一輪清理，這支一直沒跟上）。改用岩藍：`nav a.active`／全站按鈕／`.chip.active` 改用 `--ink2`；`.ring-alert`（大景預警文字）新增 `--bad` 語意變數（跟機率地圖圖例「低綠/中金/高紅」三階色階共用同一個紅，語意是警示不是品牌色，數值剛好跟 `--k2` 相同——品牌系統沒有另外定義危險紅，理由同 401 的 `--bad`）；`scoreColor()` 那組地圖圖例色階刻意不動（Leaflet 用 JS 直接 setAttribute 畫 SVG，CSS 變數不會被解析，字面值改掉風險大於效益）。順帶修掉「📲 安裝到桌面」按鈕的過時青綠漸層+陰影（`linear-gradient(135deg,#14B8A6,#0d9488)`＋`box-shadow`，違反 `no_gradient`/`no_shadow`，也不在品牌色盤內）——這是 `ridgeline-branding` skill 的 `install_inject.py` 通用範本裡的問題，已經在腳本源頭一併修正（改破曉金`#DE9A45`實色+深色文字，iOS 引導彈窗的「知道了」改岩藍`#2C4459`避免同框兩處金），400/403 兩支同樣用這支腳本注入的 App 之後重跑會自動拿到新版，不用逐支手改。頁首版號徽章順便從卡住的 v0.1 校正到現在版號（跟 README 現況同步）。核心測試 37 項全過。
 - 2026-08-24 v0.6：準確度改善4項——850hPa逆溫層厚度、CWA即時觀測交叉驗證(`_worker/`代理)、時間窗平均、ensemble模型信心區間。單元測試29項全過。
 - 2026-08-24 v0.5：**產品方向大改版**——拿掉登入/訂閱/推播/打卡回報整套機制，全站開放瀏覽；機率預測改分開呈現+因子拆解，新增雲海高度估算(LCL公式)、觀星指數、首頁景點快選、預測說明頁；`seed.sql`從17個佔位景點換成53個老闆親自研究的景點（66筆，含多現象拆列），海拔以Open-Meteo API查詢為主、4個點依老闆給的明確數字覆蓋(API山區格點常低估)。
 - 2026-08-23 v0.4：上線 https://lightcatcher.pages.dev/（wrangler Pages，Production/main實測確認）。新增`_tools\build-staging.mjs`。

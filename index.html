@@ -6,6 +6,7 @@
 <title>光影獵人 LightCatcher</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./favicon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
 <meta name="theme-color" content="#A64B38">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
@@ -18,6 +19,14 @@
     --ink:#141E2B; --ink2:#2C4459; --steel:#6E8BA3; --snow:#EEF3F6; --paper:#F7F3EC;
     --k2:#A64B38; --good:#3F6B4F; --warn:#DE9A45; --line:#BECBD5; --surface:#fff;
     --bar-bg:#141E2B; --bar-fg:#EEF3F6;
+    /* v2026-08-24：品牌稽核抓到——k2(#A64B38)是山脈家族色，只能用在 icon
+       底色跟家族頁 hero，這支 App 卻拿它當分頁籤 active／按鈕／chip 這類
+       小型 UI 元件的強調色，違反 ridgeline-tokens.json 的 family_color_scope
+       （401 山行計畫在 v2.19 就做過同一輪清理，這支一直沒跟上）。改用
+       --ink2（一般 UI）；--bad 是新增的，跟機率地圖圖例／scoreColor() 那組
+       「低綠/中金/高紅」三階色階共用同一個紅，語意是「高機率/預警」不是
+       品牌色，數值剛好跟 --k2 相同（品牌系統沒有另外定義危險紅）。 */
+    --bad:#A64B38;
   }
   /* 深色模式：只調整結構性的中性色(頁面底色/文字/邊框/卡片底色)，
      品牌強調色(--k2)跟頭尾常駐深色列(--bar-bg/--bar-fg)刻意不隨主題變化 */
@@ -35,21 +44,21 @@
   .rl-appbar .ver{font-size:11px;color:var(--steel)}
   nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
   nav a{flex:1;text-align:center;padding:12px 4px;font-size:13px;color:var(--steel);text-decoration:none;border-bottom:3px solid transparent}
-  nav a.active{color:var(--k2);border-bottom-color:var(--k2);font-weight:600}
+  nav a.active{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
   main{padding:16px;max-width:520px;margin:0 auto}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
   .card h2{font-size:14px;margin:0 0 10px;color:var(--steel);font-weight:600}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  button{background:var(--k2);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer}
+  button{background:var(--ink2);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer}
   button.secondary{background:var(--snow);color:var(--ink)}
   button:disabled{opacity:.5;cursor:not-allowed}
   input[type=number],input[type=text]{width:110px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
   .countdown{font-size:32px;font-weight:700;letter-spacing:1px;margin:6px 0}
   .countdown-label{font-size:13px;color:var(--steel)}
-  .ring-alert{color:var(--k2);font-weight:600;margin-top:8px}
+  .ring-alert{color:var(--bad);font-weight:600;margin-top:8px}
   .muted{color:var(--steel);font-size:13px}
   .chip{background:var(--snow);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer}
-  .chip.active{background:var(--k2);color:#fff;border-color:var(--k2)}
+  .chip.active{background:var(--ink2);color:#fff;border-color:var(--ink2)}
   .score-card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
   .score-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
   .score-icon{font-size:20px}
@@ -94,7 +103,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.1</span>
+  <span class="ver">v0.7</span>
 </header>
 
 <nav id="nav">
@@ -1166,9 +1175,12 @@
 .rdg-install{margin:0 auto 14px;max-width:340px;text-align:center}
 .rdg-install.rdg-fixed{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);
   transform:translateX(-50%);z-index:99980;margin:0;width:auto}
+/* v2026-08-24：品牌稽核——ridgeline-branding skill 內建的安裝按鈕預設樣式
+   是過時的青綠漸層+陰影，不在品牌色盤內，違反 no_gradient/no_shadow。
+   改成破曉金實色+深色文字，拿掉漸層跟陰影。 */
 .rdg-install button{width:100%;border:0;border-radius:13px;padding:12px 20px;font-size:15px;font-weight:800;
-  cursor:pointer;background:linear-gradient(135deg,#14B8A6,#0d9488);color:#fff;
-  box-shadow:0 8px 20px rgba(20,184,166,.34);font-family:inherit;letter-spacing:1px}
+  cursor:pointer;background:var(--warn);color:#2E1B06;
+  font-family:inherit;letter-spacing:1px}
 .rdg-install button:active{transform:translateY(1px)}
 #rdgIos{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;
   background:rgba(6,8,10,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);padding:22px}
@@ -1176,8 +1188,10 @@
 .rdg-ios-box{background:#fff;color:#222;max-width:330px;width:100%;border-radius:18px;padding:24px 22px 18px;
   text-align:center;box-shadow:0 22px 60px rgba(0,0,0,.4);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+/* 用岩藍不用金——同一頁如果金色安裝按鈕跟這顆同時看得到會變成兩處金，
+   違反 no_second_gold。 */
 .rdg-ios-box #rdgIosClose{margin-top:16px;width:100%;border:0;border-radius:12px;padding:11px;font-size:14.5px;
-  font-weight:700;background:#14B8A6;color:#fff;cursor:pointer}
+  font-weight:700;background:var(--ink2);color:#fff;cursor:pointer}
 </style>
 <script>
 (function(){
