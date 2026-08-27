@@ -103,7 +103,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.7</span>
+  <span class="ver">v0.10</span>
 </header>
 
 <nav id="nav">
@@ -185,7 +185,7 @@
       <p class="muted">看的是「有沒有雲能反射夕陽的紅光」，不是雲越少越好：</p>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
         <li><b>低雲量 35%</b>：低雲會直接擋住地平線的陽光，&lt;10%最佳，&gt;30%大幅扣分</li>
-        <li><b>中高雲量 35%</b>：40~70%最佳——太陽光從低角度照到這層雲的底部反射出來，才是「燒」起來的紅光；完全無雲或滿天雲都拍不到</li>
+        <li><b>中高雲量 35%</b>：40~80%最佳，滿天雲也可能出大景(2026-08-27校準)——只要低雲夠少讓陽光能從低角度照到雲底反射，中高雲鋪滿整片天空常常才是最壯觀的「燒」起來的紅光；完全無雲拍不到</li>
         <li><b>濕度 15%</b>：空氣越乾越通透，色彩越飽和</li>
         <li><b>能見度 15%</b>：&gt;15km加分，霧霾會讓顏色混濁</li>
       </ul>
@@ -196,14 +196,14 @@
       <ul class="muted" style="padding-left:18px;margin:6px 0">
         <li><b>逆溫強度 35%</b>：比較地面氣溫與925hPa(約海拔700-800m處)氣溫，高空越暖分數越高——這是逆溫存不存在的主訊號</li>
         <li><b>逆溫層厚度 15%</b>：再往上比較925hPa跟850hPa(約海拔1500m)，如果溫度持平或續暖代表逆溫「蓋子」夠厚、雲海比較穩定不易破碎；如果快速轉冷代表逆溫層很薄，雲海容易一下就散了（2026-08-24新增，之前只看單一高度）</li>
-        <li><b>高空濕度 25%</b>：夠濕才有雲可以形成</li>
-        <li><b>地表風速 25%</b>：≤2m/s最佳，風太大雲海會被吹散</li>
+        <li><b>高空濕度 25%</b>：夠濕才有雲可以形成，≥90%最佳(2026-08-27校準，原85%)</li>
+        <li><b>地表風速 25%</b>：≤3m/s最佳，風太大雲海會被吹散(2026-08-27校準，原2m/s)</li>
       </ul>
       <p class="muted"><b>雲海高度</b>是額外估算：用氣象學經典的「凝結高度」公式——<code>雲底高度(公尺) ≈ 125 × (地面氣溫 − 露點溫度)</code>（Espy's equation）反推雲層大概在哪個海拔，藉此判斷你所在的觀景點是在雲層之上還是之下。這是理論估算不是實測，僅供參考。</p>
     </div>
     <div class="card" id="section-stars">
       <h2>✨ 觀星指數</h2>
-      <p class="muted">總雲量(70%，越少越好)＋濕度代表的霾害程度(30%)。這個指數目前<b>不考慮光害</b>，市區觀星實際感受會比分數差很多。</p>
+      <p class="muted">總雲量(55%，越少越好)＋月相(25%，2026-08-27新增——滿月會讓觀星體驗大幅變差，接近新月才最佳)＋濕度代表的霾害程度(20%)。這個指數仍<b>不考慮市區人造光害</b>，只算了月光，市區觀星實際感受會比分數差很多。</p>
     </div>
     <div class="card" id="section-liuli">
       <h2>💎 琉璃光指數</h2>
@@ -329,7 +329,7 @@
   }
   function starsLine(h) {
     const stars = window.WeatherMath.starsScore(h);
-    return `✨ 觀星：<b style="color:${scoreColor(stars.score)}">${stars.score}分</b>（未算光害）`;
+    return `✨ 觀星：<b style="color:${scoreColor(stars.score)}">${stars.score}分</b>（已算月相，未算市區光害）`;
   }
   function liuliLine(h) {
     const liuli = window.WeatherMath.liuliGuangScore(h);
@@ -757,9 +757,10 @@
       <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(stars.score)}">${stars.score}</span></div>
       <div class="score-factors">
         ${factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score)}
+        ${factorBar('月相亮度', b.moonPhase.value + '%', b.moonPhase.score)}
         ${factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score)}
       </div>
-      <p class="muted" style="margin:8px 0 0">⚠️ 未考慮光害，市區或近城鎮地點實際觀星品質會比這個分數差很多。</p>
+      <p class="muted" style="margin:8px 0 0">⚠️ 已算月相，但未考慮市區人造光害，市區或近城鎮地點實際觀星品質會比這個分數差很多。</p>
       <div class="confidence-slot"></div>
     </div>`;
   }

@@ -30,12 +30,22 @@
 
   // 權重是估計值，之後依實測回饋校準，不是驗證過的氣象公式；
   // breakdown把每個因子的原始值跟子分數都吐出來，給UI做透明度說明用。
+  //
+  // 2026-08-27校準：老闆回報台北當天火燒雲大景，實測分數只有48分。查Open-Meteo
+  // 回填資料發現當時低雲趨近0%（陽光無阻）、中高雲卻高達98-100%，中高雲子分數
+  // 因為原本40-70%「甜蜜區間」在100%處硬性歸零(floorHi=100)被砍到只剩個位數，
+  // 拖垮總分。低雲已經另外用lowScore卡過「貼地雲層擋光」這件事，中高雲滿天(甚至
+  // 逼近100%)在低雲晴朗的前提下常常正是大景成因(整片天空都是染色畫布)，不該被當
+  // 成跟「完全陰天」同一種壞天氣處理。把甜蜜區間上緣從70%鬆到80%、floorHi從100%
+  // (滿天雲=直接砍到0分，明顯不合理)拉到140%，滿天高雲(100%)現在落在合理的
+  // 「偏高但不歸零」區間；「低雲也一起滿天」(貼地陰天)的情境仍由lowScore單獨砍到0
+  // 分主導總分，不受這次調整影響。目前仍是單一真實案例校準，非精雕公式。
   function fieryGlowScore(h) {
     const lowScore = h.cloudLow <= 10 ? 100
       : h.cloudLow >= 30 ? Math.max(0, 40 - (h.cloudLow - 30) * 2)
       : clampLerp(h.cloudLow, 10, 100, 30, 40);
     const midHigh = h.cloudMid + h.cloudHigh;
-    const midHighScore = triangleScore(midHigh, 0, 40, 70, 100);
+    const midHighScore = triangleScore(midHigh, 0, 40, 80, 140);
     const humidityScore = h.humidity <= 50 ? 100 : clampLerp(h.humidity, 50, 100, 100, 0);
     const visibilityScore = clampLerp(h.visibility, 5000, 0, 15000, 100);
 
@@ -54,6 +64,12 @@
 
   // 逆溫是主因子(50%，2026-08-24起改用925hPa+850hPa兩層判斷厚度)，
   // 邊界層濕度(25%)+地表風速(25%)輔助
+  //
+  // 2026-08-27校準：查證香港天文台官方教育頁+台灣本地山友深度部落格(OUTSiDERS/
+  // enzowen)後微調兩個門檻。濕度：官方說法要「接近飽和」才凝結，社群操作門檻多
+  // 引用90%，原本85%滿分偏寬鬆，改為90%。風速：查到的經驗法則是「2-3級風(約
+  // 1.6-5.4m/s)都算有利」，原本只有≤2m/s給滿分偏窄，滿分窗放寬到≤3m/s(歸零門檻
+  // 5m/s不變，跟2-3級風力上緣大致吻合)。仍是單篇文獻對照校準，非精雕公式。
   function seaOfCloudsScore(h) {
     // 第一層：地面→925hPa(約海拔700-800m)，逆溫存不存在的主訊號
     const inv1 = h.upperTemp - h.surfaceTemp;
@@ -64,10 +80,10 @@
     const inv2Score = inv2 >= -1 ? 100 : clampLerp(inv2, -6, 0, -1, 100);
     const inversionScore = inv1Score * 0.7 + inv2Score * 0.3;
 
-    const humidityScore = h.upperHumidity >= 85 ? 100 : clampLerp(h.upperHumidity, 50, 0, 85, 100);
-    const windScore = h.windSpeed <= 2 ? 100
+    const humidityScore = h.upperHumidity >= 90 ? 100 : clampLerp(h.upperHumidity, 50, 0, 90, 100);
+    const windScore = h.windSpeed <= 3 ? 100
       : h.windSpeed >= 5 ? 0
-      : clampLerp(h.windSpeed, 2, 100, 5, 0);
+      : clampLerp(h.windSpeed, 3, 100, 5, 0);
 
     const score = inversionScore * 0.5 + humidityScore * 0.25 + windScore * 0.25;
     return {
@@ -82,18 +98,28 @@
     };
   }
 
-  // 觀星：總雲量(70%)+濕度代表的霾害程度(30%)，PRD沒給公式，比照另兩個指數的邏輯自訂
+  // 觀星：總雲量(55%)+月相光害(25%)+濕度代表的霾害程度(20%)。
+  // 2026-08-27查證Clear Sky Chart(北美業餘天文界20年事實標準)+Bortle Scale：
+  // 滿月可讓天頂極限星等損失3.5-4等，等同把一個原本Bortle 1-2級的暗空點，觀測體驗
+  // 瞬間拉到市郊Bortle 6-7級水準——這是查到的5個指數校準項目裡效果最大、又最容易算
+  // (SunCalc本來就有getMoonIllumination，不用額外接API)的因子，原本完全沒算。
+  // h.moonIllumination缺省視為0(新月，不扣分)，向下相容沒有月相資料的呼叫端。
+  // 地面濕度當「透明度」代理仍不夠精確(CSC官方定義透明度是整層大氣柱總水氣量，
+  // 濕度另有獨立用途是提醒結露/鏡頭起霧)，但免費API目前沒有更好的替代資料源，暫留。
   function starsScore(h) {
     const totalCloud = (h.cloudLow + h.cloudMid + h.cloudHigh) / 3;
     const cloudScore = clampLerp(totalCloud, 0, 100, 60, 0);
     const humidityScore = h.humidity <= 60 ? 100 : clampLerp(h.humidity, 60, 100, 95, 0);
-    const score = cloudScore * 0.7 + humidityScore * 0.3;
+    const moonFraction = h.moonIllumination || 0;
+    const moonScore = clampLerp(moonFraction, 0, 100, 1, 0);
+    const score = cloudScore * 0.55 + moonScore * 0.25 + humidityScore * 0.2;
     return {
       score: Math.round(score),
       alert: score > 75,
       breakdown: {
-        totalCloud: { value: Math.round(totalCloud), score: Math.round(cloudScore), weight: 0.7 },
-        humidity: { value: h.humidity, score: Math.round(humidityScore), weight: 0.3 }
+        totalCloud: { value: Math.round(totalCloud), score: Math.round(cloudScore), weight: 0.55 },
+        moonPhase: { value: Math.round(moonFraction * 100), score: Math.round(moonScore), weight: 0.25 },
+        humidity: { value: h.humidity, score: Math.round(humidityScore), weight: 0.2 }
       }
     };
   }
@@ -202,7 +228,10 @@
       upperTemp: get('temperature_925hPa'),
       upperTemp850: get('temperature_850hPa'),
       upperHumidity: get('relativehumidity_925hPa'),
-      windSpeed: get('windspeed_10m') / 3.6
+      windSpeed: get('windspeed_10m') / 3.6,
+      // 月相不受天氣模式影響，各成員共用同一個值，只是讓ensemble score計算跟
+      // 真正顯示的分數(也含月相)口徑一致，不會系統性偏移confidence區間
+      moonIllumination: window.SunCalc.getMoonIllumination(new Date(hourly.time[index])).fraction
     };
   }
 
@@ -234,7 +263,9 @@
     return best;
   }
 
-  function buildH(hourly, indices) {
+  // refDate：用來算月相(getMoonIllumination只吃日期，跟天氣資料無關)。
+  // 沒傳refDate時moonIllumination給undefined，starsScore會當作0(新月)處理。
+  function buildH(hourly, indices, refDate) {
     const avg = (arr) => indices.reduce((s, i) => s + arr[i], 0) / indices.length;
     return {
       cloudLow: avg(hourly.cloudcover_low),
@@ -247,12 +278,13 @@
       upperTemp: avg(hourly.temperature_925hPa),
       upperTemp850: avg(hourly.temperature_850hPa),
       upperHumidity: avg(hourly.relativehumidity_925hPa),
-      windSpeed: avg(hourly.windspeed_10m) / 3.6 // km/h -> m/s，PRD門檻(4m/s)用m/s
+      windSpeed: avg(hourly.windspeed_10m) / 3.6, // km/h -> m/s，PRD門檻(4m/s)用m/s
+      moonIllumination: refDate ? window.SunCalc.getMoonIllumination(refDate).fraction : undefined
     };
   }
 
   function hourAt(hourly, index) {
-    return buildH(hourly, [index]);
+    return buildH(hourly, [index], new Date(hourly.time[index]));
   }
 
   // 黃金時刻/藍調時刻有30-60分鐘區間，只抓最接近的單一小時容易被那一小時的
@@ -266,7 +298,7 @@
       if (Math.abs(new Date(t).getTime() - center) <= ms) indices.push(i);
     });
     if (!indices.length) indices.push(nearestHourIndex(hourly, centerDate));
-    return buildH(hourly, indices);
+    return buildH(hourly, indices, centerDate);
   }
 
   // ---- 中央氣象署(CWA)即時觀測交叉驗證 ----

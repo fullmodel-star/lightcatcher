@@ -52,6 +52,17 @@ function check(name, cond) {
   check('[3] bad.score 落在0-100', bad.score >= 0 && bad.score <= 100);
 }
 
+// [3b] 雲海濕度/風速門檻校準(2026-08-27，查證香港天文台+台灣山友部落格後調整)：
+// 90%濕度+3m/s風速應給滿分；85%濕度、3.5m/s風速不應再是滿分(舊門檻是85%/2m/s)
+{
+  const atNewThreshold = WM.seaOfCloudsScore({ surfaceTemp: 15, upperTemp: 20, upperTemp850: 20.5, upperHumidity: 90, windSpeed: 3 });
+  const belowNewThreshold = WM.seaOfCloudsScore({ surfaceTemp: 15, upperTemp: 20, upperTemp850: 20.5, upperHumidity: 85, windSpeed: 3.5 });
+  check('[3b] 90%濕度給滿分', atNewThreshold.breakdown.upperHumidity.score === 100);
+  check('[3b] 3m/s風速給滿分', atNewThreshold.breakdown.windSpeed.score === 100);
+  check('[3b] 85%濕度不再是滿分', belowNewThreshold.breakdown.upperHumidity.score < 100);
+  check('[3b] 3.5m/s風速不再是滿分', belowNewThreshold.breakdown.windSpeed.score < 100);
+}
+
 // [4] 反向斷言：分數函式不可回傳 NaN（邊界值0/100全都要能算）
 {
   const edge1 = WM.fieryGlowScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 0, visibility: 0 });
@@ -92,14 +103,24 @@ function check(name, cond) {
   check('[8] hourAt單點取值不變(仍為08:00的40)', hSingle.cloudLow === 40);
 }
 
-// [5] 觀星指數：晴空高分、滿天雲低分，且都落在0-100
+// [5] 觀星指數：晴空+新月高分、滿天雲+滿月低分，且都落在0-100
 {
-  const good = WM.starsScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 40 });
-  const bad = WM.starsScore({ cloudLow: 100, cloudMid: 100, cloudHigh: 100, humidity: 95 });
+  const good = WM.starsScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 40, moonIllumination: 0 });
+  const bad = WM.starsScore({ cloudLow: 100, cloudMid: 100, cloudHigh: 100, humidity: 95, moonIllumination: 1 });
   check('[5] 晴空高分', good.score > 70);
   check('[5] 滿天雲低分', bad.score < 20);
   check('[5] good.score 落在0-100', good.score >= 0 && good.score <= 100);
   check('[5] bad.score 落在0-100', bad.score >= 0 && bad.score <= 100);
+}
+
+// [5e] 月相因子(2026-08-27新增，查證Clear Sky Chart+Bortle Scale後加入)：
+// 其他因子相同時，滿月應該比新月低分；沒給moonIllumination時應視為新月(不扣分)
+{
+  const newMoon = WM.starsScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 40, moonIllumination: 0 });
+  const fullMoon = WM.starsScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 40, moonIllumination: 1 });
+  const noMoonData = WM.starsScore({ cloudLow: 0, cloudMid: 0, cloudHigh: 0, humidity: 40 });
+  check('[5e] 新月分數高於滿月', newMoon.score > fullMoon.score);
+  check('[5e] 缺月相資料時視為新月', noMoonData.score === newMoon.score);
 }
 
 // [5b] 藍調時刻指數：晴空高分、滿天雲低分，且都落在0-100
