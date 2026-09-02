@@ -93,6 +93,30 @@
   .fc-detail{padding-bottom:12px}
   .fc-detail .score-card{margin-top:8px}
 </style>
+
+<!-- ── 分享預覽（稜線 App 分享卡系統 · 方案A 暖米白）─────────────────────
+     圖由 05_品牌資源\04_行銷素材\13_App分享卡_OG\og_app_card.py 產出，勿手改。
+     ⚠ og:image 一定要「絕對網址」——LINE／FB／Slack 的爬蟲不在本站環境，
+       相對路徑一律抓不到，預覽就會退回抓 apple-touch-icon（黑角的來源）。
+     ⚠ ?v= 是給 FB／LINE 快取用的：換圖沒換 v，各平台會繼續發舊圖好幾天。 -->
+<link rel="canonical" href="https://lightcatcher.pages.dev/">
+<meta name="description" content="攝影光線與時機預測：黃金時刻與藍調時刻倒數、火燒雲／雲海／觀星／琉璃光機率指數、未來三日預測、攝影熱點地圖與常用地點記錄。預測為模型推估，實際天況請以現場為準。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="光影獵人">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://lightcatcher.pages.dev/">
+<meta property="og:title" content="光影獵人｜黃金時刻與大景預測">
+<meta property="og:description" content="黃金時刻倒數、火燒雲與雲海機率預測、觀星與琉璃光指數，還有攝影熱點地圖。">
+<meta property="og:image" content="https://lightcatcher.pages.dev/og-lightcatcher.png?v=20260903-1">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="光影獵人 — 黃金時刻與大景預測">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="光影獵人｜黃金時刻與大景預測">
+<meta name="twitter:description" content="黃金時刻倒數、火燒雲與雲海機率預測、觀星與琉璃光指數，還有攝影熱點地圖。">
+<meta name="twitter:image" content="https://lightcatcher.pages.dev/og-lightcatcher.png?v=20260903-1">
+<meta name="twitter:image:alt" content="光影獵人 — 黃金時刻與大景預測">
 </head>
 <body>
 
@@ -103,7 +127,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.10</span>
+  <span class="ver">v0.11</span>
 </header>
 
 <nav id="nav">
@@ -147,7 +171,8 @@
     </div>
 
     <div class="card">
-      <h2>機率預測</h2>
+      <h2>機率預測（現在此刻）</h2>
+      <p class="muted" style="font-size:11px;margin-top:-4px">以下是「現在」這一刻的即時天候評分，不是等等/今晚才會發生的目標時刻——那個對得上首頁「今日推薦」分數的預測請看上面「下一個光影時刻」卡片。</p>
       <div class="row">
         <button id="btnWeather" disabled>抓取氣象預測</button>
         <span class="muted" id="weatherStatus"></span>
@@ -161,7 +186,7 @@
     </div>
 
     <div class="card">
-      <h2>未來三日預測（傍晚黃金時刻）</h2>
+      <h2>未來三日預測（各現象抓自己合理的時刻）</h2>
       <div id="forecast3" class="muted">先抓取上方機率預測後才會一起算出來</div>
     </div>
   </section>
@@ -954,23 +979,28 @@
 
       renderForecast3(data, coords.lat, coords.lng, groundElevationM);
 
-      // 藍調時刻不是資料庫標記的現象類型，獨立算分附在倒數計時卡下面，
-      // 跟「今日推薦」用同一套nextPhenomenonTime()/blueHourScore()，兩處數字對得起來
+      // 主打現象要顯示「下一次真正發生的目標時刻」預測分數，跟首頁「今日推薦」用同一套
+      // nextPhenomenonTime()/各自的scoreFn，兩處數字才對得起來——之前這裡只算藍調時刻，
+      // 導致從首頁「查看預測」點進來，只看到下面「現在此刻」卡片的即時分數(常常是0，
+      // 因為現在通常不是傍晚/入夜的目標時刻)，看起來像首頁在騙人
       const blueLine = document.getElementById('blueHourScoreLine');
-      const blueTarget = nextPhenomenonTime(coords.lat, coords.lng, 'blue');
-      if (blueTarget) {
-        const idxBlue = window.WeatherMath.nearestHourIndex(data.hourly, blueTarget);
-        const closestBlue = new Date(data.hourly.time[idxBlue]);
-        if (Math.abs(closestBlue - blueTarget) <= 3 * 3600 * 1000) {
-          const hBlue = window.WeatherMath.hourAtWindow(data.hourly, blueTarget);
-          const blue = window.WeatherMath.blueHourScore(hBlue);
-          blueLine.innerHTML = `💙 藍調時刻預測：<span class="fc-badge" style="background:${scoreColor(blue.score)}">${blue.score}</span>${blue.alert ? '　值得留意' : ''}`;
-        } else {
-          blueLine.textContent = '';
-        }
-      } else {
-        blueLine.textContent = '';
-      }
+      const kinds = selectedSpot
+        ? [...new Set([...selectedSpot.types.map((t) => TYPE_TO_KIND[t]).filter(Boolean), 'blue'])]
+        : ['blue'];
+      const lines = [];
+      kinds.forEach((kind) => {
+        const target = nextPhenomenonTime(coords.lat, coords.lng, kind);
+        if (!target) return;
+        const idxK = window.WeatherMath.nearestHourIndex(data.hourly, target);
+        const closestK = new Date(data.hourly.time[idxK]);
+        if (Math.abs(closestK - target) > 3 * 3600 * 1000) return;
+        const hK = window.WeatherMath.hourAtWindow(data.hourly, target);
+        const meta = KIND_META[kind];
+        const result = meta.scoreFn(hK);
+        const timeLabel = target.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+        lines.push(`${meta.icon} ${meta.label}預測（${timeLabel}）：<span class="fc-badge" style="background:${scoreColor(result.score)}">${result.score}</span>${result.alert ? '　值得留意' : ''}`);
+      });
+      blueLine.innerHTML = lines.join('<br>');
     } catch (err) {
       statusEl.textContent = '抓取失敗：' + err.message;
     }
