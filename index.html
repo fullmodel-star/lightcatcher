@@ -6,7 +6,7 @@
 <title>光影獵人 LightCatcher</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./favicon-32.png" type="image/png">
-<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
 <meta name="theme-color" content="#A64B38">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
@@ -1203,14 +1203,17 @@
   <button type="button" id="rdgIosClose">知道了</button>
 </div></div>
 <style>
+/* v2026-08-24：品牌稽核抓到——這裡原本是青綠色漸層+陰影(#14B8A6/#0d9488)，
+   完全不在 ridgeline-tokens.json 色盤內，且違反 rules.no_gradient/no_shadow。
+   改成破曉金(#DE9A45)實色+深色文字；iOS「知道了」改岩藍(#2C4459)，避免
+   跟金色安裝鈕同框變成兩處金(no_second_gold)。這兩個值是字面量不是
+   var()——這支腳本套用到的 App 不保證都有定義 --warn/--ink2 這兩個
+   CSS 變數，字面量才能通用。 */
 .rdg-install{margin:0 auto 14px;max-width:340px;text-align:center}
 .rdg-install.rdg-fixed{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);
   transform:translateX(-50%);z-index:99980;margin:0;width:auto}
-/* v2026-08-24：品牌稽核——ridgeline-branding skill 內建的安裝按鈕預設樣式
-   是過時的青綠漸層+陰影，不在品牌色盤內，違反 no_gradient/no_shadow。
-   改成破曉金實色+深色文字，拿掉漸層跟陰影。 */
 .rdg-install button{width:100%;border:0;border-radius:13px;padding:12px 20px;font-size:15px;font-weight:800;
-  cursor:pointer;background:var(--warn);color:#2E1B06;
+  cursor:pointer;background:#DE9A45;color:#2E1B06;
   font-family:inherit;letter-spacing:1px}
 .rdg-install button:active{transform:translateY(1px)}
 #rdgIos{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;
@@ -1219,10 +1222,8 @@
 .rdg-ios-box{background:#fff;color:#222;max-width:330px;width:100%;border-radius:18px;padding:24px 22px 18px;
   text-align:center;box-shadow:0 22px 60px rgba(0,0,0,.4);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
-/* 用岩藍不用金——同一頁如果金色安裝按鈕跟這顆同時看得到會變成兩處金，
-   違反 no_second_gold。 */
 .rdg-ios-box #rdgIosClose{margin-top:16px;width:100%;border:0;border-radius:12px;padding:11px;font-size:14.5px;
-  font-weight:700;background:var(--ink2);color:#fff;cursor:pointer}
+  font-weight:700;background:#2C4459;color:#fff;cursor:pointer}
 </style>
 <script>
 (function(){
@@ -1251,6 +1252,7 @@
   function later(){ setTimeout(refresh,700); }
   if(document.readyState==='complete') later(); else window.addEventListener('load',later);
 })();
+</script>
 <!--RIDGELINE_INSTALL_END-->
 </body>
 </html>

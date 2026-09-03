@@ -1,4 +1,4 @@
-const CACHE = 'lightcatcher-v25';
+const CACHE = 'lightcatcher-v26';
 
 // 鐵則16：預先快取清單不放任何 .html（含 index.html），避免 Cloudflare Pages
 // 對 .html 的 308 轉址被存成 redirected:true 的 Response 後拿去 respondWith 導覽請求。
@@ -8,6 +8,7 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './icon-180.png',
+  './apple-touch-icon.png',
   './favicon-32.png',
   './weatherMath.js',
   './vendor/suncalc.js',
