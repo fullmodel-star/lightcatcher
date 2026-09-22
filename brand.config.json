@@ -7,6 +7,7 @@
   "license": "© 2026 Lucas　本 App 免費提供拍攝規劃參考使用；程式與內容著作權皆屬作者，未經同意請勿重製、散布或作商業用途。",
   "disclaimer": "⚠️ 免責聲明：本App之機率預測基於Open-Meteo公開氣象資料自動計算，僅供攝影行程參考，實際天候瞬息萬變，不保證準確；高山與偏遠景點請自行評估路況與安全，本App不可作為登山安全判斷的唯一依據。",
   "logo_svg": "",
+  "feedback_mailto": "weiwynn8899@gmail.com",
   "install_button": true,
   "build_templates": []
 }
