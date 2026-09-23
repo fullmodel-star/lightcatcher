@@ -44,8 +44,16 @@
   .rl-appbar .rl-slogan{font-size:12px;color:var(--steel)}
   .rl-appbar .rl-spacer{flex:1}
   .rl-appbar .ver{font-size:11px;color:var(--steel)}
-  nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-  nav a{flex:1;text-align:center;padding:12px 4px;font-size:13px;color:var(--steel);text-decoration:none;border-bottom:3px solid transparent}
+  /* v0.12 修正真實bug：nav a{flex:1}平均分配寬度，但沒設min-width:0，
+     窄螢幕(≲390px)時「⚙️自訂選項」等較長分頁的內容自然寬度撐破自己
+     的1/4份額，整條nav被撐寬、最後一個分頁被切到看不見。改成橫向可
+     滑動＋不換行（家族做法），右緣加淡出提示。 */
+  nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;
+    overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  nav::-webkit-scrollbar{display:none}
+  nav::after{content:'';position:absolute;top:0;right:0;bottom:0;width:20px;
+    background:linear-gradient(to right,transparent,var(--surface));pointer-events:none}
+  nav a{flex:0 0 auto;white-space:nowrap;text-align:center;padding:12px 14px;font-size:13px;color:var(--steel);text-decoration:none;border-bottom:3px solid transparent}
   nav a.active{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
   main{padding:16px;max-width:520px;margin:0 auto}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
