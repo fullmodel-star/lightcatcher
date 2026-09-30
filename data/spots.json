@@ -1,0 +1,524 @@
+{
+ "source": "seed.sql",
+ "generated": "2026-09-30",
+ "spots": [
+  {
+   "name": "武嶺",
+   "lat": 24.1371,
+   "lng": 121.2757,
+   "type": "sea_of_clouds",
+   "min_elevation": 3275
+  },
+  {
+   "name": "武嶺",
+   "lat": 24.1371,
+   "lng": 121.2757,
+   "type": "sunset",
+   "min_elevation": 3275
+  },
+  {
+   "name": "武嶺",
+   "lat": 24.1371,
+   "lng": 121.2757,
+   "type": "stars",
+   "min_elevation": 3275
+  },
+  {
+   "name": "昆陽",
+   "lat": 24.1226,
+   "lng": 121.2706,
+   "type": "sea_of_clouds",
+   "min_elevation": 3163
+  },
+  {
+   "name": "昆陽",
+   "lat": 24.1226,
+   "lng": 121.2706,
+   "type": "sunset",
+   "min_elevation": 3163
+  },
+  {
+   "name": "昆陽",
+   "lat": 24.1226,
+   "lng": 121.2706,
+   "type": "stars",
+   "min_elevation": 3163
+  },
+  {
+   "name": "鳶峰",
+   "lat": 24.1132,
+   "lng": 121.2389,
+   "type": "sea_of_clouds",
+   "min_elevation": 2750
+  },
+  {
+   "name": "鳶峰",
+   "lat": 24.1132,
+   "lng": 121.2389,
+   "type": "sunset",
+   "min_elevation": 2750
+  },
+  {
+   "name": "鳶峰",
+   "lat": 24.1132,
+   "lng": 121.2389,
+   "type": "stars",
+   "min_elevation": 2750
+  },
+  {
+   "name": "小笠原山",
+   "lat": 23.5135,
+   "lng": 120.8142,
+   "type": "sunset",
+   "min_elevation": 2288
+  },
+  {
+   "name": "小笠原山",
+   "lat": 23.5135,
+   "lng": 120.8142,
+   "type": "stars",
+   "min_elevation": 2288
+  },
+  {
+   "name": "隙頂二延平",
+   "lat": 23.4243,
+   "lng": 120.6528,
+   "type": "sea_of_clouds",
+   "min_elevation": 1431
+  },
+  {
+   "name": "隙頂二延平",
+   "lat": 23.4243,
+   "lng": 120.6528,
+   "type": "liuli_guang",
+   "min_elevation": 1431
+  },
+  {
+   "name": "頂石棹",
+   "lat": 23.4682,
+   "lng": 120.6975,
+   "type": "sunrise",
+   "min_elevation": 1317
+  },
+  {
+   "name": "頂石棹",
+   "lat": 23.4682,
+   "lng": 120.6975,
+   "type": "liuli_guang",
+   "min_elevation": 1317
+  },
+  {
+   "name": "塔塔加遊客中心",
+   "lat": 23.4867,
+   "lng": 120.8872,
+   "type": "sea_of_clouds",
+   "min_elevation": 2600
+  },
+  {
+   "name": "塔塔加遊客中心",
+   "lat": 23.4867,
+   "lng": 120.8872,
+   "type": "stars",
+   "min_elevation": 2600
+  },
+  {
+   "name": "鹿林天文台",
+   "lat": 23.4697,
+   "lng": 120.8736,
+   "type": "sea_of_clouds",
+   "min_elevation": 2802
+  },
+  {
+   "name": "鹿林天文台",
+   "lat": 23.4697,
+   "lng": 120.8736,
+   "type": "stars",
+   "min_elevation": 2802
+  },
+  {
+   "name": "北大武山(檜谷/光明頂)",
+   "lat": 22.6247,
+   "lng": 120.7381,
+   "type": "sea_of_clouds",
+   "min_elevation": 2150
+  },
+  {
+   "name": "北大武山(檜谷/光明頂)",
+   "lat": 22.6247,
+   "lng": 120.7381,
+   "type": "sunset",
+   "min_elevation": 2150
+  },
+  {
+   "name": "六十石山(忘憂亭)",
+   "lat": 23.2208,
+   "lng": 121.3197,
+   "type": "sea_of_clouds",
+   "min_elevation": 964
+  },
+  {
+   "name": "六十石山(忘憂亭)",
+   "lat": 23.2208,
+   "lng": 121.3197,
+   "type": "sunset",
+   "min_elevation": 964
+  },
+  {
+   "name": "六十石山(忘憂亭)",
+   "lat": 23.2208,
+   "lng": 121.3197,
+   "type": "stars",
+   "min_elevation": 964
+  },
+  {
+   "name": "大屯山助航站",
+   "lat": 25.1763,
+   "lng": 121.5283,
+   "type": "sea_of_clouds",
+   "min_elevation": 813
+  },
+  {
+   "name": "五分山氣象雷達站",
+   "lat": 25.0717,
+   "lng": 121.7811,
+   "type": "sea_of_clouds",
+   "min_elevation": 712
+  },
+  {
+   "name": "石碇千島湖",
+   "lat": 24.9317,
+   "lng": 121.6598,
+   "type": "sea_of_clouds",
+   "min_elevation": 168
+  },
+  {
+   "name": "觀音山硬漢嶺",
+   "lat": 25.1378,
+   "lng": 121.4255,
+   "type": "sea_of_clouds",
+   "min_elevation": 497
+  },
+  {
+   "name": "太平山見晴懷古",
+   "lat": 24.5165,
+   "lng": 121.6095,
+   "type": "sea_of_clouds",
+   "min_elevation": 1885
+  },
+  {
+   "name": "三義薑麻園(雲洞山莊)",
+   "lat": 24.3875,
+   "lng": 120.8258,
+   "type": "sea_of_clouds",
+   "min_elevation": 771
+  },
+  {
+   "name": "山上人家森林農場",
+   "lat": 24.6062,
+   "lng": 121.0963,
+   "type": "sea_of_clouds",
+   "min_elevation": 967
+  },
+  {
+   "name": "大雪山48K觀景台",
+   "lat": 24.2672,
+   "lng": 121.0028,
+   "type": "sea_of_clouds",
+   "min_elevation": 2271
+  },
+  {
+   "name": "武界部落",
+   "lat": 23.9186,
+   "lng": 121.0478,
+   "type": "sea_of_clouds",
+   "min_elevation": 801
+  },
+  {
+   "name": "鹿谷大崙山銀杏森林",
+   "lat": 23.6823,
+   "lng": 120.7675,
+   "type": "sea_of_clouds",
+   "min_elevation": 1488
+  },
+  {
+   "name": "鹿谷大崙山銀杏森林",
+   "lat": 23.6823,
+   "lng": 120.7675,
+   "type": "liuli_guang",
+   "min_elevation": 1488
+  },
+  {
+   "name": "埔里虎頭山",
+   "lat": 23.9739,
+   "lng": 120.9821,
+   "type": "liuli_guang",
+   "min_elevation": 555
+  },
+  {
+   "name": "梅山太平雲梯",
+   "lat": 23.559601,
+   "lng": 120.60008,
+   "type": "liuli_guang",
+   "min_elevation": 1000
+  },
+  {
+   "name": "左鎮二寮觀日亭",
+   "lat": 22.9972,
+   "lng": 120.4078,
+   "type": "sea_of_clouds",
+   "min_elevation": 124
+  },
+  {
+   "name": "左鎮二寮觀日亭",
+   "lat": 22.9972,
+   "lng": 120.4078,
+   "type": "sunrise",
+   "min_elevation": 124
+  },
+  {
+   "name": "六龜藤枝森林遊樂區",
+   "lat": 23.0725,
+   "lng": 120.7561,
+   "type": "sea_of_clouds",
+   "min_elevation": 1530
+  },
+  {
+   "name": "太麻里金針山",
+   "lat": 22.6567,
+   "lng": 120.9631,
+   "type": "sea_of_clouds",
+   "min_elevation": 817
+  },
+  {
+   "name": "金龍山",
+   "lat": 23.90023,
+   "lng": 120.90869,
+   "type": "sea_of_clouds",
+   "min_elevation": 820
+  },
+  {
+   "name": "金龍山",
+   "lat": 23.90023,
+   "lng": 120.90869,
+   "type": "sunrise",
+   "min_elevation": 820
+  },
+  {
+   "name": "金龍山",
+   "lat": 23.90023,
+   "lng": 120.90869,
+   "type": "liuli_guang",
+   "min_elevation": 820
+  },
+  {
+   "name": "瑞芳不厭亭",
+   "lat": 25.0935,
+   "lng": 121.8475,
+   "type": "stars",
+   "min_elevation": 392
+  },
+  {
+   "name": "石門富貴角燈塔",
+   "lat": 25.2983,
+   "lng": 121.5385,
+   "type": "stars",
+   "min_elevation": 7
+  },
+  {
+   "name": "司馬庫斯",
+   "lat": 24.5797,
+   "lng": 121.3361,
+   "type": "stars",
+   "min_elevation": 1704
+  },
+  {
+   "name": "福壽山農場天池",
+   "lat": 24.2464,
+   "lng": 121.2468,
+   "type": "stars",
+   "min_elevation": 2230
+  },
+  {
+   "name": "清境農場翠峰",
+   "lat": 24.1012,
+   "lng": 121.1965,
+   "type": "stars",
+   "min_elevation": 2204
+  },
+  {
+   "name": "七股國聖港燈塔",
+   "lat": 23.1009,
+   "lng": 120.0358,
+   "type": "stars",
+   "min_elevation": 0
+  },
+  {
+   "name": "墾丁龍磐公園",
+   "lat": 21.9306,
+   "lng": 120.8444,
+   "type": "stars",
+   "min_elevation": 108
+  },
+  {
+   "name": "滿州旭海沙灘",
+   "lat": 22.1963,
+   "lng": 120.8878,
+   "type": "stars",
+   "min_elevation": 58
+  },
+  {
+   "name": "七星潭海岸",
+   "lat": 24.0319,
+   "lng": 121.6292,
+   "type": "stars",
+   "min_elevation": 0
+  },
+  {
+   "name": "成功三仙台跨海步橋",
+   "lat": 23.1239,
+   "lng": 121.4169,
+   "type": "stars",
+   "min_elevation": 6
+  },
+  {
+   "name": "東河加路蘭海岸",
+   "lat": 22.8094,
+   "lng": 121.1961,
+   "type": "stars",
+   "min_elevation": 10
+  },
+  {
+   "name": "池上伯朗大道",
+   "lat": 23.1006,
+   "lng": 121.2183,
+   "type": "stars",
+   "min_elevation": 268
+  },
+  {
+   "name": "綠島帆船鼻草原",
+   "lat": 22.6481,
+   "lng": 121.5033,
+   "type": "stars",
+   "min_elevation": 0
+  },
+  {
+   "name": "蘭嶼青青草原",
+   "lat": 22.0297,
+   "lng": 121.5542,
+   "type": "stars",
+   "min_elevation": 104
+  },
+  {
+   "name": "馬祖東莒燈塔",
+   "lat": 25.9644,
+   "lng": 119.9806,
+   "type": "stars",
+   "min_elevation": 31
+  },
+  {
+   "name": "澎湖七美雙心石滬",
+   "lat": 23.2189,
+   "lng": 119.4294,
+   "type": "stars",
+   "min_elevation": 13
+  },
+  {
+   "name": "大稻埕碼頭",
+   "lat": 25.0569,
+   "lng": 121.5074,
+   "type": "sunset",
+   "min_elevation": 0
+  },
+  {
+   "name": "象山六巨石",
+   "lat": 25.0274,
+   "lng": 121.5742,
+   "type": "sunset",
+   "min_elevation": 127
+  },
+  {
+   "name": "淡水漁人碼頭",
+   "lat": 25.1832,
+   "lng": 121.4115,
+   "type": "sunset",
+   "min_elevation": 0
+  },
+  {
+   "name": "鼻頭角稜谷步道",
+   "lat": 25.1292,
+   "lng": 121.9239,
+   "type": "sunset",
+   "min_elevation": 0
+  },
+  {
+   "name": "新屋永安漁港",
+   "lat": 24.9882,
+   "lng": 121.0185,
+   "type": "sunset",
+   "min_elevation": 5
+  },
+  {
+   "name": "清水高美濕地",
+   "lat": 24.3121,
+   "lng": 120.5501,
+   "type": "sunset",
+   "min_elevation": 4
+  },
+  {
+   "name": "王功漁港",
+   "lat": 23.9678,
+   "lng": 120.3342,
+   "type": "sunset",
+   "min_elevation": 3
+  },
+  {
+   "name": "日月潭朝霧碼頭",
+   "lat": 23.8698,
+   "lng": 120.9163,
+   "type": "sunrise",
+   "min_elevation": 806
+  },
+  {
+   "name": "日月潭向山",
+   "lat": 23.8698,
+   "lng": 120.9163,
+   "type": "sunset",
+   "min_elevation": 806
+  },
+  {
+   "name": "北門井仔腳瓦盤鹽田",
+   "lat": 23.2592,
+   "lng": 120.1086,
+   "type": "sunset",
+   "min_elevation": 2
+  },
+  {
+   "name": "安平觀夕平台",
+   "lat": 22.9932,
+   "lng": 120.1497,
+   "type": "sunset",
+   "min_elevation": 6
+  },
+  {
+   "name": "旗津燈塔",
+   "lat": 22.6148,
+   "lng": 120.2662,
+   "type": "sunset",
+   "min_elevation": 13
+  },
+  {
+   "name": "太麻里多良車站",
+   "lat": 22.5075,
+   "lng": 120.9603,
+   "type": "sunrise",
+   "min_elevation": 15
+  },
+  {
+   "name": "馬祖北竿壁山觀景台",
+   "lat": 26.2239,
+   "lng": 119.9897,
+   "type": "sunset",
+   "min_elevation": 225
+  }
+ ]
+}

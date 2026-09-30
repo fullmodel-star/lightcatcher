@@ -1,4 +1,4 @@
-const CACHE = 'lightcatcher-v34';
+const CACHE = 'lightcatcher-v35';
 
 // 鐵則16：預先快取清單不放任何 .html（含 index.html），避免 Cloudflare Pages
 // 對 .html 的 308 轉址被存成 redirected:true 的 Response 後拿去 respondWith 導覽請求。
@@ -16,6 +16,7 @@ const ASSETS = [
   './vendor/suncalc.js',
   './vendor/supabase.js',
   './supabaseClient.js',
+  './data/spots.json',   // 2026-09-30：Supabase 連不上時的景點靜態備援
   './vendor/leaflet/leaflet.js',
   './vendor/leaflet/leaflet.css',
   './vendor/leaflet/images/marker-icon.png',

@@ -9,7 +9,7 @@ const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, '_staging');
 
 const EXCLUDE_EXT = new Set(['.md', '.sql', '.py']);
-const EXCLUDE_NAMES = new Set(['.git', '.github', 'supabase', 'brand.config.json', 'node_modules', '.gitignore']);
+const EXCLUDE_NAMES = new Set(['.git', '.github', 'supabase', 'brand.config.json', 'node_modules', '.gitignore', '.wrangler']);  // .wrangler＝wrangler 帳號快取，2026-09-30 發現會被複製進 staging
 
 function isExcluded(relPath) {
   return relPath.split(path.sep).some((seg) => seg.startsWith('_') || EXCLUDE_NAMES.has(seg));

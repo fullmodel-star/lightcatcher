@@ -140,7 +140,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.11</span>
+  <span class="ver">v0.12</span>
 </header>
 
 <nav id="nav">
@@ -386,7 +386,7 @@
     leafletMap.invalidateSize();
 
     statusEl.textContent = '載入熱點中…';
-    const { data: spots, error } = await window.SB.from('spots').select('*');
+    const { data: spots, error } = await loadSpots();
     if (error) { statusEl.textContent = '載入失敗：' + error.message; return; }
     if (!spots || !spots.length) { statusEl.textContent = '目前還沒有熱點資料（可在Supabase跑seed.sql加幾筆）'; return; }
 
@@ -522,6 +522,32 @@
   // ---- 知名景點快選（同一地點若有多種現象，合併成一個按鈕，選中後全部一起顯示） ----
   const typeIcon = { sunrise: '🌅', sunset: '🌇', sea_of_clouds: '☁️', stars: '✨', liuli_guang: '💎' };
 
+  // 景點資料：先查 Supabase；連不上（2026-09-30 實測專案網域解析不到，首頁「景點載入失敗」、地圖 0 個熱點）
+  // 就改讀隨 App 部署的 data/spots.json（由 seed.sql 產生：node _tools/build-spots-json.mjs）。
+  // 首頁快選、每日推薦、地圖三處都會叫：同一次開啟只查一次（Supabase 連不上時要等逾時，別讓每一處都等一次）
+  let spotsPromise = null;
+  async function loadSpots(orderByName) {
+    if (!spotsPromise) {
+      spotsPromise = (async () => {
+        try {
+          const q = window.SB.from('spots').select('*');
+          const res = await Promise.race([q, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]);
+          if (res && !res.error && res.data && res.data.length) return { data: res.data, error: null };
+        } catch (e) { /* 改用靜態備援 */ }
+        try {
+          const r = await fetch('data/spots.json', { cache: 'no-cache' });
+          if (!r.ok) throw new Error('data/spots.json HTTP ' + r.status);
+          return { data: (await r.json()).spots || [], error: null };
+        } catch (e) { spotsPromise = null; return { data: null, error: e }; }
+      })();
+    }
+    const res = await spotsPromise;
+    if (!res.data) return res;
+    const data = res.data.slice();
+    if (orderByName) data.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+    return { data, error: null };
+  }
+
   function groupSpotsByLocation(spots) {
     const byKey = new Map();
     spots.forEach((s) => {
@@ -547,7 +573,7 @@
 
   async function loadSpotChips() {
     const container = document.getElementById('spotChips');
-    const { data: spots, error } = await window.SB.from('spots').select('*').order('name');
+    const { data: spots, error } = await loadSpots(true);
     if (error) { container.innerHTML = `<span class="muted">景點載入失敗：${error.message}</span>`; return; }
     if (!spots || !spots.length) { container.innerHTML = '<span class="muted">目前尚無景點資料</span>'; return; }
     const locations = groupSpotsByLocation(spots);
@@ -651,7 +677,7 @@
   }
 
   async function computeDailyPicks() {
-    const { data: spots, error } = await window.SB.from('spots').select('*');
+    const { data: spots, error } = await loadSpots();
     if (error || !spots || !spots.length) throw new Error(error ? error.message : '無景點資料');
     const locations = groupSpotsByLocation(spots);
     const results = await Promise.all(locations.map((loc) => scoreLocationForDailyPicks(loc).catch(() => null)));
