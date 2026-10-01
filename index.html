@@ -140,7 +140,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.12</span>
+  <span class="ver">v0.13</span>
 </header>
 
 <nav id="nav">
@@ -256,7 +256,7 @@
     <div class="card">
       <h2>誠實聲明</h2>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
-        <li>預測資料來自 <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> 免費公開API。</li>
+        <li>預測資料來自 <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> 免費公開API（Weather data by Open-Meteo.com，資料授權 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>）。</li>
         <li>首頁另外會顯示<a href="https://opendata.cwa.gov.tw" target="_blank">中央氣象署</a>最近測站的即時觀測數據當交叉對照(距離15公里內才會顯示，太遠的測站不具參考性)——這是實測值不是預測，跟我們的分數不一定完全吻合。</li>
         <li>每張分數卡下方的「🎯模型信心」是額外算的：拿約40組不同氣象模式的預測結果互相比較，落差小代表模式間有共識(信心高)，落差大代表這個時段天氣還很不確定(信心低)，<b>不是分數本身的準確度保證</b>。</li>
         <li>上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。</li>
@@ -380,7 +380,7 @@
     const statusEl = document.getElementById('mapStatus');
     leafletMap = L.map('mapView').setView([23.7, 121.0], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
       maxZoom: 18
     }).addTo(leafletMap);
     leafletMap.invalidateSize();
