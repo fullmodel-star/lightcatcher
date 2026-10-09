@@ -41,9 +41,9 @@
   .rl-appbar{display:flex;align-items:center;gap:14px;background:var(--bar-bg);color:var(--bar-fg);padding:14px 18px}
   .rl-appbar .rl-mark{width:36px;height:36px;flex:0 0 auto;object-fit:contain}
   .rl-appbar .rl-title{font-family:'Noto Serif TC',serif;font-weight:700;font-size:18px;line-height:1.15}
-  .rl-appbar .rl-slogan{font-size:12px;color:var(--steel)}
+  .rl-appbar .rl-slogan{font-size:13px;color:var(--steel)}
   .rl-appbar .rl-spacer{flex:1}
-  .rl-appbar .ver{font-size:11px;color:var(--steel)}
+  .rl-appbar .ver{font-size:13px;color:var(--steel)}
   /* v0.12 修正真實bug：nav a{flex:1}平均分配寬度，但沒設min-width:0，
      窄螢幕(≲390px)時「⚙️自訂選項」等較長分頁的內容自然寬度撐破自己
      的1/4份額，整條nav被撐寬、最後一個分頁被切到看不見。改成橫向可
@@ -78,12 +78,12 @@
   .score-title{flex:1;font-weight:600;font-size:14px}
   .score-num{font-size:22px;font-weight:800}
   .factor-row{margin-bottom:7px}
-  .factor-label{display:flex;justify-content:space-between;font-size:12px;color:var(--steel);margin-bottom:3px}
+  .factor-label{display:flex;justify-content:space-between;font-size:13px;color:var(--steel);margin-bottom:3px}
   .factor-bar{height:6px;background:var(--snow);border-radius:999px;overflow:hidden}
   .factor-bar > div{height:100%;border-radius:999px}
-  .info-link{font-size:11px;color:var(--steel);text-decoration:none;white-space:nowrap;display:inline-block;padding:10px 8px;margin:-10px -8px}
+  .info-link{font-size:13px;color:var(--steel);text-decoration:none;white-space:nowrap;display:inline-block;padding:10px 8px;margin:-10px -8px}
   .info-link:hover{text-decoration:underline}
-  .popup-btn{margin-top:6px;padding:6px 10px;font-size:12px}
+  .popup-btn{margin-top:6px;padding:6px 10px;font-size:13px}
   .secondary-details{margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
   .secondary-details summary{cursor:pointer;font-size:13px;color:var(--steel);font-weight:600}
   .secondary-details .score-card{opacity:.85}
@@ -93,7 +93,7 @@
   section[data-view]{display:none}
   section[data-view].active{display:block}
   #mapView{height:60vh;min-height:360px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
-  .legend{display:flex;gap:14px;font-size:12px;color:var(--steel);margin-top:8px;flex-wrap:wrap}
+  .legend{display:flex;gap:14px;font-size:13px;color:var(--steel);margin-top:8px;flex-wrap:wrap}
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
   .fc-item{border-bottom:1px solid var(--line)}
@@ -155,7 +155,7 @@
     <div class="card" id="dailyPicksCard">
       <h2>🌟 今日推薦：可能出大景</h2>
       <div id="dailyPicksBody" class="muted">掃描全台景點中…</div>
-      <p class="muted" style="font-size:12px;margin-top:8px">每天自動掃描全部景點的預測分數（同一支瀏覽器一天算一次），只挑出分數超過大景預警門檻(75分)的地點；今天沒有特別突出的就不硬推薦。僅供參考，實際天氣仍可能變化。</p>
+      <p class="muted" style="font-size:13px;margin-top:8px">每天自動掃描全部景點的預測分數（同一支瀏覽器一天算一次），只挑出分數超過大景預警門檻(75分)的地點；今天沒有特別突出的就不硬推薦。僅供參考，實際天氣仍可能變化。</p>
     </div>
 
     <div class="card">
@@ -185,7 +185,7 @@
 
     <div class="card">
       <h2>機率預測（現在此刻）</h2>
-      <p class="muted" style="font-size:12px;margin-top:-4px">以下是「現在」這一刻的即時天候評分，不是等等/今晚才會發生的目標時刻——那個對得上首頁「今日推薦」分數的預測請看上面「下一個光影時刻」卡片。</p>
+      <p class="muted" style="font-size:13px;margin-top:-4px">以下是「現在」這一刻的即時天候評分，不是等等/今晚才會發生的目標時刻——那個對得上首頁「今日推薦」分數的預測請看上面「下一個光影時刻」卡片。</p>
       <div class="row">
         <button id="btnWeather" disabled>抓取氣象預測</button>
         <span class="muted" id="weatherStatus"></span>
@@ -971,7 +971,7 @@
       `最近測站：<b>${obs.name}</b>（距離${obs.distanceKm}km，海拔${obs.elevation}m）<br>` +
       `目前天氣現象：${weatherText}　能見度：${visText}<br>` +
       `氣溫：${tempText}　濕度：${humidityText}　觀測時間：${obs.obsTime || '未知'}<br>` +
-      `<span style="font-size:12px">這是氣象署測站的實際觀測值，不是我們的預測——可以互相對照，如果跟上面的預測差很多，代表模型在這個地點可能有誤差。</span>`;
+      `<span style="font-size:13px">這是氣象署測站的實際觀測值，不是我們的預測——可以互相對照，如果跟上面的預測差很多，代表模型在這個地點可能有誤差。</span>`;
     card.style.display = 'block';
   }
 
@@ -1065,7 +1065,7 @@
     if (!list.length) { container.innerHTML = '<p class="muted">目前沒有自訂地點</p>'; return; }
     container.innerHTML = list.map((s, i) => `
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;padding:8px 10px;background:var(--snow);border-radius:8px">
-        <div><b>${s.name}</b><br><span class="muted" style="font-size:12px">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</span></div>
+        <div><b>${s.name}</b><br><span class="muted" style="font-size:13px">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</span></div>
         <div class="row" style="gap:6px">
           <button class="secondary" data-use="${i}">使用</button>
           <button class="secondary" data-del="${i}">刪除</button>
@@ -1195,9 +1195,9 @@
 .rdg-foot .rdg-slg{border-left:1px solid rgba(130,130,130,.35);padding-left:14px;text-align:left;
   font-size:15px;letter-spacing:2px;line-height:1.5;opacity:.82}
 .rdg-foot .rdg-by{font-size:13px;letter-spacing:2px;opacity:.6;margin-bottom:6px}
-.rdg-foot .rdg-lic{font-size:11px;opacity:.5;max-width:640px;margin:0 auto 10px;line-height:1.7}
-.rdg-foot .rdg-l3{font-size:11px;opacity:.52;max-width:640px;margin:0 auto;text-align:justify}
-.rdg-foot .rdg-fb{font-size:12px;opacity:.6;margin-top:10px}
+.rdg-foot .rdg-lic{font-size:13px;opacity:.5;max-width:640px;margin:0 auto 10px;line-height:1.7}
+.rdg-foot .rdg-l3{font-size:13px;opacity:.52;max-width:640px;margin:0 auto;text-align:justify}
+.rdg-foot .rdg-fb{font-size:13px;opacity:.6;margin-top:10px}
 .rdg-foot .rdg-fb a{color:inherit;text-decoration:underline}
 </style>
 <script>
