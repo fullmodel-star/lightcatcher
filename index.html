@@ -9,18 +9,19 @@
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
 <meta name="theme-color" content="#004F44">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
+<!-- 2026-10-12：拿掉 Google Fonts（Noto Sans/Serif TC 首載約 1.3MB），改系統字型堆疊；有裝 Noto 的裝置照樣會用到 -->
 <script>
   // 深色模式偏好要在CSS套用前就設定好，不然會先閃一下淺色再切換
   try { document.documentElement.setAttribute('data-theme', localStorage.getItem('lc_theme_v1') || 'light'); } catch (e) {}
 </script>
 <style>
   :root{
-    --ink:#141E2B; --ink2:#2C4459; --steel:#6E8BA3; --snow:#EEF3F6; --paper:#F7F3EC;
+    /* 2026-10-12：--steel #6E8BA3→#4E6A82（白底對比 3.6→5.7，Lighthouse color-contrast）；
+       頁首深色列上的副標改用 --bar-sub，不跟著變深 */
+    --ink:#141E2B; --ink2:#2C4459; --steel:#4E6A82; --snow:#EEF3F6; --paper:#F7F3EC;
     --k2:#004F44; --good:#3F6B4F; --warn:#DE9A45; --line:#BECBD5; --surface:#fff;
-    --bar-bg:#141E2B; --bar-fg:#EEF3F6;
+    --bar-bg:#141E2B; --bar-fg:#EEF3F6; --bar-sub:#9FB4C6;
     /* v2026-08-24：品牌稽核抓到——k2(#A64B38)是山脈家族色，只能用在 icon
        底色跟家族頁 hero，這支 App 卻拿它當分頁籤 active／按鈕／chip 這類
        小型 UI 元件的強調色，違反 ridgeline-tokens.json 的 family_color_scope
@@ -36,14 +37,18 @@
     --paper:#12181F; --ink:#E8EDF2; --steel:#9FB4C6; --snow:#1E2731; --line:#2A3946; --surface:#182230;
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Noto Sans TC',system-ui,-apple-system,sans-serif;background:var(--paper);color:var(--ink)}
+  /* 2026-10-12：系統字型堆疊（原本從 Google Fonts 載 Noto Sans TC）；主文字 13→15px */
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
+    font-size:15px;line-height:1.55;background:var(--paper);color:var(--ink)}
   /* 稜線品牌App Bar：家族山徽＋App名＋該家族header_slogan（ridgeline-tokens.json app_header規範） */
-  .rl-appbar{display:flex;align-items:center;gap:14px;background:var(--bar-bg);color:var(--bar-fg);padding:14px 18px}
+  .rl-appbar{display:flex;align-items:center;gap:12px;background:var(--bar-bg);color:var(--bar-fg);padding:12px 16px}
   .rl-appbar .rl-mark{width:36px;height:36px;flex:0 0 auto;object-fit:contain}
-  .rl-appbar .rl-title{font-family:'Noto Serif TC',serif;font-weight:700;font-size:18px;line-height:1.15}
-  .rl-appbar .rl-slogan{font-size:13px;color:var(--steel)}
+  .rl-appbar .rl-title{font-family:"Noto Serif TC","Source Han Serif TC","Songti TC","PMingLiU",serif;font-weight:700;font-size:20px;line-height:1.15}
+  .rl-appbar .rl-slogan{font-size:13px;color:var(--bar-sub)}
   .rl-appbar .rl-spacer{flex:1}
-  .rl-appbar .ver{font-size:13px;color:var(--steel)}
+  .rl-appbar .ver{font-size:13px;color:var(--bar-sub)}
+  /* 頁首 LINE 分享／回報兩顆注入鈕 32→40px（手機觸控目標） */
+  .rl-appbar .lineShareFab,.rl-appbar .reportFab{width:40px;height:40px}
   /* v0.12 修正真實bug：nav a{flex:1}平均分配寬度，但沒設min-width:0，
      窄螢幕(≲390px)時「⚙️自訂選項」等較長分頁的內容自然寬度撐破自己
      的1/4份額，整條nav被撐寬、最後一個分頁被切到看不見。改成橫向可
@@ -53,58 +58,90 @@
   nav::-webkit-scrollbar{display:none}
   nav::after{content:'';position:absolute;top:0;right:0;bottom:0;width:20px;
     background:linear-gradient(to right,transparent,var(--surface));pointer-events:none}
-  nav a{flex:0 0 auto;white-space:nowrap;text-align:center;padding:12px 14px;font-size:13px;color:var(--steel);text-decoration:none;border-bottom:3px solid transparent}
-  nav a.active{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
-  main{padding:16px;max-width:520px;margin:0 auto}
+  nav a{flex:0 0 auto;white-space:nowrap;text-align:center;padding:12px 8px;font-size:14px;color:var(--steel);text-decoration:none;border-bottom:3px solid transparent}
+  nav a.active{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
+  main{padding:16px;max-width:560px;margin:0 auto}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
-  .card h2{font-size:14px;margin:0 0 10px;color:var(--steel);font-weight:600}
+  .card h2{font-size:17px;margin:0 0 10px;color:var(--ink);font-weight:700}
   /* 預測說明分頁是多行中文密排長句條列，瀏覽器預設line-height(~1.15-1.2)讀起來吃力，
      比照品牌footer(1.5-1.7)的密度補上 */
   section[data-view="about"] .muted{line-height:1.6}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  button{background:var(--ink2);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer}
-  button.secondary{background:var(--snow);color:var(--ink)}
+  button{background:var(--ink2);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:15px;min-height:44px;cursor:pointer;font-family:inherit}
+  button.secondary{background:var(--snow);color:var(--ink);border:1px solid var(--line)}
   button:disabled{opacity:.5;cursor:not-allowed}
-  input[type=number],input[type=text]{width:110px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+  input[type=number],input[type=text]{width:120px;min-height:44px;padding:8px 10px;font-size:15px;font-family:inherit;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+  input[type=checkbox]{width:22px;height:22px;accent-color:var(--ink2)}
   .countdown{font-size:32px;font-weight:700;letter-spacing:1px;margin:6px 0}
-  .countdown-label{font-size:13px;color:var(--steel)}
+  .countdown-label{font-size:15px;color:var(--steel)}
   .ring-alert{color:var(--bad);font-weight:600;margin-top:8px}
-  .muted{color:var(--steel);font-size:13px}
-  .chip{background:var(--snow);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:12px 16px;font-size:13px;cursor:pointer}
+  .muted{color:var(--steel);font-size:15px}
+  .note{color:var(--steel);font-size:14px;line-height:1.6}
+  .chip{background:var(--snow);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:10px 16px;font-size:15px;min-height:44px;cursor:pointer}
   .chip.active{background:var(--ink2);color:#fff;border-color:var(--ink2)}
+  /* 首屏主要行動：只有這一顆用破曉金實色大按鈕，其餘按鈕都是深藍或淺色次要鈕 */
+  .hero h2{font-size:21px;margin-bottom:4px}
+  .hero-lead{margin:0 0 12px;color:var(--steel)}
+  .cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;font-size:18px;font-weight:800;
+    background:var(--warn);color:#2E1B06;border-radius:12px;letter-spacing:.5px}
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 6px}
+  .stat{background:var(--snow);border-radius:10px;padding:8px 6px;text-align:center}
+  .stat b{display:block;font-size:22px;line-height:1.2;color:var(--ink)}
+  .stat span{font-size:13px;color:var(--steel)}
+  .pick{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+  .pick:first-child{border-top:none}
+  .pick-name{font-weight:700}
+  .pick .secondary{white-space:nowrap}
+  .src{margin:10px 0 0;font-size:13px;color:var(--steel)}
   .score-card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
   .score-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
   .score-icon{font-size:20px}
-  .score-title{flex:1;font-weight:600;font-size:14px}
-  .score-num{font-size:22px;font-weight:800}
+  .score-title{flex:1;font-weight:700;font-size:16px}
+  .score-num{font-size:24px;font-weight:800}
   .factor-row{margin-bottom:7px}
-  .factor-label{display:flex;justify-content:space-between;font-size:13px;color:var(--steel);margin-bottom:3px}
+  .factor-label{display:flex;justify-content:space-between;font-size:14px;color:var(--steel);margin-bottom:3px}
   .factor-bar{height:6px;background:var(--snow);border-radius:999px;overflow:hidden}
   .factor-bar > div{height:100%;border-radius:999px}
-  .info-link{font-size:13px;color:var(--steel);text-decoration:none;white-space:nowrap;display:inline-block;padding:10px 8px;margin:-10px -8px}
+  .info-link{font-size:15px;color:var(--steel);text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;min-height:44px;padding:0 8px;margin:0 -8px}
   .info-link:hover{text-decoration:underline}
-  .popup-btn{margin-top:6px;padding:6px 10px;font-size:13px}
+  .score-head .info-link{font-size:14px}
+  .popup-btn{margin-top:6px;padding:6px 12px;font-size:15px}
   .secondary-details{margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
-  .secondary-details summary{cursor:pointer;font-size:13px;color:var(--steel);font-weight:600}
+  .secondary-details summary{cursor:pointer;font-size:15px;color:var(--steel);font-weight:600}
   .secondary-details .score-card{opacity:.85}
   .placeholder{padding:40px 16px;text-align:center;color:var(--steel)}
-  .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bar-bg);color:var(--bar-fg);padding:12px 16px;align-items:center;justify-content:space-between;font-size:13px}
-  .update-bar button{padding:6px 12px;font-size:13px}
+  .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bar-bg);color:var(--bar-fg);padding:12px 16px;align-items:center;justify-content:space-between;font-size:15px}
+  .update-bar button{padding:6px 12px;font-size:15px}
   section[data-view]{display:none}
   section[data-view].active{display:block}
   #mapView{height:60vh;min-height:360px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
-  .legend{display:flex;gap:14px;font-size:13px;color:var(--steel);margin-top:8px;flex-wrap:wrap}
+  .legend{display:flex;gap:14px;font-size:14px;color:var(--steel);margin-top:8px;flex-wrap:wrap}
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
   .fc-item{border-bottom:1px solid var(--line)}
   .fc-item:last-child{border-bottom:none}
   .fc-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
   .fc-item summary.fc-row{cursor:pointer}
-  .fc-day{font-weight:600;font-size:14px;width:70px}
-  .fc-scores{display:flex;gap:16px;font-size:13px}
-  .fc-badge{padding:3px 9px;border-radius:999px;color:#fff;font-weight:700}
+  .fc-day{font-weight:700;font-size:15px;width:70px}
+  .fc-scores{display:flex;gap:12px;font-size:14px;flex-wrap:wrap}
+  .fc-badge{padding:3px 9px;border-radius:999px;color:#fff;font-weight:700;white-space:nowrap}
+  .fc-badge.mid{color:#2E1B06}
   .fc-detail{padding-bottom:12px}
   .fc-detail .score-card{margin-top:8px}
+  /* 還沒選地點時，倒數／即時分數／三日預測三張卡收起，改顯示一張「下一步」卡 */
+  main.no-loc section .needs-loc{display:none !important}
+  main:not(.no-loc) section .only-no-loc{display:none !important}
+  /* 桌機：內容撐到 1180px、卡片排兩欄（多欄而不是把一段文字拉寬，單行維持 ≤約 35 字） */
+  @media (min-width:960px){
+    main{max-width:1180px;padding:20px 24px}
+    /* 首頁：格線兩欄（主推薦｜選地點並排，下面的倒數／即時／三日預測依序兩兩並排） */
+    section[data-view="dashboard"].active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px;align-items:start}
+    /* 說明／設定頁：文字卡片用多欄排列 */
+    section[data-view="about"].active,section[data-view="settings"].active{column-count:2;column-gap:20px}
+    section[data-view="about"].active > .card,section[data-view="settings"].active > .card{break-inside:avoid;-webkit-column-break-inside:avoid;display:inline-block;width:100%;vertical-align:top}
+    .hero .cta{width:auto;padding:0 32px}
+    #mapView{height:70vh}
+  }
 </style>
 
 <!-- ── 分享預覽（稜線 App 分享卡系統 · 方案A 暖米白）─────────────────────
@@ -140,7 +177,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.14</span>
+  <span class="ver">v0.15</span>
 </header>
 
 <nav id="nav">
@@ -150,44 +187,63 @@
   <a href="#settings" data-view="settings">⚙️ 自訂選項</a>
 </nav>
 
-<main>
+<main id="mainEl" class="no-loc">
   <section data-view="dashboard">
-    <div class="card" id="dailyPicksCard">
-      <h2>🌟 今日推薦：可能出大景</h2>
+    <div class="card hero" id="dailyPicksCard">
+      <h2>今天哪裡最好拍？</h2>
+      <p class="hero-lead">每天掃描全台攝影景點的火燒雲、雲海、觀星、藍調時刻預報，挑出可能出大景的地方。</p>
+      <button type="button" class="cta" id="btnBestToday">🔭 看今天哪裡最好拍</button>
+      <div class="stats" aria-label="今日掃描統計">
+        <div class="stat"><b id="statSpots">–</b><span>個景點已掃描</span></div>
+        <div class="stat"><b id="statAlerts">–</b><span>處達大景門檻</span></div>
+        <div class="stat"><b id="statSaved">0</b><span>個常用地點</span></div>
+      </div>
+      <h3 class="muted" style="font-size:15px;margin:14px 0 4px">🌟 今日推薦：可能出大景</h3>
       <div id="dailyPicksBody" class="muted">掃描全台景點中…</div>
-      <p class="muted" style="font-size:13px;margin-top:8px">每天自動掃描全部景點的預測分數（同一支瀏覽器一天算一次），只挑出分數超過大景預警門檻(75分)的地點；今天沒有特別突出的就不硬推薦。僅供參考，實際天氣仍可能變化。</p>
+      <p class="note" style="margin:8px 0 0">分數超過大景預警門檻（75 分）才列入；今天沒有特別突出的就不硬推薦。僅供參考，實際天氣仍可能變化。</p>
+      <p class="src" id="dailyPicksSrc">資料來源：Open-Meteo 氣象預報（CC BY 4.0）</p>
     </div>
 
-    <div class="card">
-      <h2>目前位置</h2>
-      <div class="row">
-        <button id="btnLocate">📍 使用目前位置</button>
+    <div class="card" id="locCard">
+      <h2>選地點</h2>
+      <p class="muted" style="margin:0 0 6px">點一個精選景點就會算出它的倒數與預測分數：</p>
+      <div class="row" id="spotChips"><span class="muted">載入景點中…</span></div>
+      <div class="row" style="margin-top:6px">
+        <a href="#map" class="info-link">🗺️ 到地圖探索瀏覽全部景點 →</a>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary" id="btnLocate">📍 使用目前位置</button>
         <span class="muted" id="locStatus">尚未定位</span>
       </div>
       <div class="row" style="margin-top:10px">
-        <input type="number" id="manualLat" placeholder="緯度" step="0.0001">
-        <input type="number" id="manualLng" placeholder="經度" step="0.0001">
+        <input type="number" id="manualLat" placeholder="緯度" aria-label="緯度" step="0.0001">
+        <input type="number" id="manualLng" placeholder="經度" aria-label="經度" step="0.0001">
         <button class="secondary" id="btnManual">手動設定</button>
-      </div>
-      <p class="muted" style="margin:10px 0 6px">或直接選知名景點：</p>
-      <div class="row" id="spotChips"><span class="muted">載入景點中…</span></div>
-      <div class="row" style="margin-top:10px">
-        <a href="#map" class="info-link" style="font-size:13px">🗺️ 到地圖探索瀏覽全部景點 →</a>
       </div>
     </div>
 
-    <div class="card">
+    <div class="card only-no-loc">
+      <h2>選好地點後會看到</h2>
+      <ul class="muted" style="padding-left:20px;margin:0 0 10px">
+        <li>下一個黃金／藍調時刻倒數，與該時刻的預測分數</li>
+        <li>現在此刻的火燒雲、雲海、觀星分數與因子拆解</li>
+        <li>未來三日每天的預測</li>
+      </ul>
+      <button type="button" class="secondary" id="btnGoPick">📍 去選一個景點</button>
+    </div>
+
+    <div class="card needs-loc">
       <h2 id="countdownLabel">下一個光影時刻</h2>
       <div class="countdown" id="countdownTime">--:--:--</div>
       <div class="countdown-label" id="countdownEvent">請先定位</div>
       <div id="blueHourScoreLine" class="muted" style="margin-top:8px"></div>
     </div>
 
-    <div class="card">
+    <div class="card needs-loc">
       <h2>機率預測（現在此刻）</h2>
-      <p class="muted" style="font-size:13px;margin-top:-4px">以下是「現在」這一刻的即時天候評分，不是等等/今晚才會發生的目標時刻——那個對得上首頁「今日推薦」分數的預測請看上面「下一個光影時刻」卡片。</p>
+      <p class="note" style="margin-top:-4px">以下是「現在」這一刻的即時天候評分，不是等等／今晚才會發生的目標時刻——對得上「今日推薦」分數的預測請看「下一個光影時刻」卡片。</p>
       <div class="row">
-        <button id="btnWeather" disabled>抓取氣象預測</button>
+        <button id="btnWeather" disabled>重新抓取氣象預測</button>
         <span class="muted" id="weatherStatus"></span>
       </div>
       <div id="scoreCards"></div>
@@ -198,7 +254,7 @@
       <div id="cwaRefBody" class="muted"></div>
     </div>
 
-    <div class="card">
+    <div class="card needs-loc">
       <h2>未來三日預測（各現象抓自己合理的時刻）</h2>
       <div id="forecast3" class="muted">先抓取上方機率預測後才會一起算出來</div>
     </div>
@@ -304,7 +360,6 @@
   <button id="btnUpdate">立即更新</button>
 </div>
 
-<script src="./vendor/leaflet/leaflet.js"></script>
 <script src="./vendor/suncalc.js"></script>
 <script src="./weatherMath.js"></script>
 <script>
@@ -340,6 +395,35 @@
     if (score > 40) return '#DE9A45';
     return '#3F6B4F';
   }
+  // 文字用色：中段的金色在白底對比只有 2.4，文字改用深一階的金棕（底色/圓點仍用 scoreColor）
+  function scoreTextColor(score) {
+    return score > 40 && score <= 75 ? '#8A5A1C' : scoreColor(score);
+  }
+  // 分數膠囊：金底配深色字、紅/綠底配白字
+  function badge(score, text) {
+    const mid = score > 40 && score <= 75;
+    return `<span class="fc-badge${mid ? ' mid' : ''}" style="background:${scoreColor(score)}">${text}</span>`;
+  }
+
+  // Leaflet 只有地圖分頁用得到，2026-10-12 起改成第一次開地圖才載（首頁省 ~150KB）
+  let leafletPromise = null;
+  function loadLeaflet() {
+    if (window.L) return Promise.resolve();
+    if (!leafletPromise) {
+      leafletPromise = new Promise((resolve, reject) => {
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = './vendor/leaflet/leaflet.css';
+        document.head.appendChild(css);
+        const js = document.createElement('script');
+        js.src = './vendor/leaflet/leaflet.js';
+        js.onload = () => resolve();
+        js.onerror = () => { leafletPromise = null; reject(new Error('地圖元件載入失敗')); };
+        document.head.appendChild(js);
+      });
+    }
+    return leafletPromise;
+  }
 
   // 地圖跟首頁一致：每個地點都算出三種現象的分數，主打的(資料庫type)正常列出，
   // 沒被標記的另外1-2種收進「其他預測」摺疊區塊，不是只顯示它主打的那一種。
@@ -357,25 +441,28 @@
     const sea = window.WeatherMath.seaOfCloudsScore(h);
     const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
     const cmp = cb.amslM <= groundElevationM ? '在雲層之上✅' : '可能在雲層之下';
-    return `☁️ 雲海：<b style="color:${scoreColor(sea.score)}">${sea.score}分</b>（雲海高度估計約${cb.amslM}m，機位${cmp}）`;
+    return `☁️ 雲海：<b style="color:${scoreTextColor(sea.score)}">${sea.score}分</b>（雲海高度估計約${cb.amslM}m，機位${cmp}）`;
   }
   function glowLine(h, label) {
     const glow = window.WeatherMath.fieryGlowScore(h);
-    return `🔥 ${label}火燒雲：<b style="color:${scoreColor(glow.score)}">${glow.score}分</b>`;
+    return `🔥 ${label}火燒雲：<b style="color:${scoreTextColor(glow.score)}">${glow.score}分</b>`;
   }
   function starsLine(h) {
     const stars = window.WeatherMath.starsScore(h);
-    return `✨ 觀星：<b style="color:${scoreColor(stars.score)}">${stars.score}分</b>（已算月相，未算市區光害）`;
+    return `✨ 觀星：<b style="color:${scoreTextColor(stars.score)}">${stars.score}分</b>（已算月相，未算市區光害）`;
   }
   function liuliLine(h) {
     const liuli = window.WeatherMath.liuliGuangScore(h);
-    return `💎 琉璃光：<b style="color:${scoreColor(liuli.score)}">${liuli.score}分</b>（夜間谷地起霧+燈光暈染，需親臨現場確認）`;
+    return `💎 琉璃光：<b style="color:${scoreTextColor(liuli.score)}">${liuli.score}分</b>（夜間谷地起霧+燈光暈染，需親臨現場確認）`;
   }
 
   async function initMapIfNeeded() {
     if (mapInited) return;
     mapInited = true;
     const statusEl = document.getElementById('mapStatus');
+    statusEl.textContent = '載入地圖中…';
+    try { await loadLeaflet(); }
+    catch (e) { mapInited = false; statusEl.textContent = e.message + '，請重新整理再試'; return; }
     leafletMap = L.map('mapView').setView([23.7, 121.0], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
@@ -391,12 +478,16 @@
     mapLocations = groupSpotsByLocation(spots);
     const markers = [];
     let done = 0;
+    // 一次查全部景點（今日推薦已查過的會直接命中快取），不再每個景點各打一次 API
+    let batch = [];
+    try { batch = await window.WeatherMath.fetchHourlyWeatherBatch(mapLocations); } catch (e) { batch = []; }
     await Promise.all(mapLocations.map(async (loc, i) => {
       const { hasSea, hasGlow, hasStars, hasLiuli, glowLabel } = locationConcepts(loc);
       let color = '#BECBD5';
       let popupBody = '無法計算（氣象資料抓取失敗）';
       try {
-        const data = await window.WeatherMath.fetchHourlyWeather(loc.lat, loc.lng);
+        const data = batch[i];
+        if (!data) throw new Error('no data');
         const h = window.WeatherMath.hourAtWindow(data.hourly, new Date());
         const groundElevationM = loc.min_elevation || data.elevation || 0;
 
@@ -467,6 +558,7 @@
 
   function setCoords(lat, lng, source) {
     coords = { lat, lng };
+    document.getElementById('mainEl').classList.remove('no-loc');
     document.getElementById('locStatus').textContent = `${source}：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     document.getElementById('btnWeather').disabled = false;
     updateCountdown();
@@ -614,15 +706,17 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  // 快取內容：{ dateKey, picks, scanned(成功算出分數的景點數), alerts(達門檻處數), at(掃描時間 ms) }
+  // 2026-10-12 前的舊快取沒有 scanned/at，視為過期重算一次
   function loadDailyPicksCache() {
     try {
       const parsed = JSON.parse(localStorage.getItem(DAILY_PICKS_KEY));
-      return parsed && parsed.dateKey === todayKey() ? parsed.picks : null;
+      return parsed && parsed.dateKey === todayKey() && Number.isFinite(parsed.scanned) && Number.isFinite(parsed.at) ? parsed : null;
     } catch (e) { return null; }
   }
 
-  function saveDailyPicksCache(picks) {
-    try { localStorage.setItem(DAILY_PICKS_KEY, JSON.stringify({ dateKey: todayKey(), picks })); }
+  function saveDailyPicksCache(result) {
+    try { localStorage.setItem(DAILY_PICKS_KEY, JSON.stringify(Object.assign({ dateKey: todayKey() }, result))); }
     catch (e) { /* 存不進去(無痕視窗等)就放棄快取，不影響當次顯示 */ }
   }
 
@@ -651,10 +745,10 @@
     return valid[0] || null;
   }
 
-  async function scoreLocationForDailyPicks(loc) {
+  function scoreLocationForDailyPicks(loc, data) {
     // 藍調時刻不靠景點資料庫標記——任何地方都適用，不像雲海/觀星需要地形/光害條件
     const kinds = [...new Set([...loc.types.map((t) => TYPE_TO_KIND[t]).filter(Boolean), 'blue'])];
-    const data = await window.WeatherMath.fetchHourlyWeather(loc.lat, loc.lng);
+    if (!data || !data.hourly) return null;
     let best = null;
     kinds.forEach((kind) => {
       const target = nextPhenomenonTime(loc.lat, loc.lng, kind);
@@ -674,32 +768,48 @@
     const { data: spots, error } = await loadSpots();
     if (error || !spots || !spots.length) throw new Error(error ? error.message : '無景點資料');
     const locations = groupSpotsByLocation(spots);
-    const results = await Promise.all(locations.map((loc) => scoreLocationForDailyPicks(loc).catch(() => null)));
-    return results.filter(Boolean).filter((p) => p.alert).sort((a, b) => b.score - a.score).slice(0, 3);
+    // 一次查全部景點的預報（每批 50 點），不再 56 個請求同時送出被 429 限流
+    const batch = await window.WeatherMath.fetchHourlyWeatherBatch(locations);
+    const results = locations.map((loc, i) => { try { return scoreLocationForDailyPicks(loc, batch[i]); } catch (e) { return null; } })
+      .filter(Boolean);
+    if (!results.length) throw new Error('預報資料抓取失敗');
+    const alerts = results.filter((p) => p.alert).sort((a, b) => b.score - a.score);
+    return { picks: alerts.slice(0, 3), scanned: results.length, total: locations.length, alerts: alerts.length, at: Date.now() };
   }
 
-  function renderDailyPicks(picks) {
+  let dailyPicks = null;          // 目前顯示的推薦（給首屏主要按鈕用）
+  let dailyPicksPromise = null;
+
+  function openPick(p) {
+    selectedSpot = { name: p.name, lat: p.lat, lng: p.lng, min_elevation: p.min_elevation, types: p.types };
+    clearChipSelection();
+    setCoords(p.lat, p.lng, p.name);
+    document.getElementById('btnWeather').click();
+    document.getElementById('countdownLabel').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function renderDailyPicks(result) {
+    const picks = result.picks || [];
+    dailyPicks = picks;
     const body = document.getElementById('dailyPicksBody');
+    document.getElementById('statSpots').textContent = result.scanned;
+    document.getElementById('statAlerts').textContent = result.alerts;
+    const at = new Date(result.at);
+    document.getElementById('dailyPicksSrc').textContent =
+      `資料來源：Open-Meteo 氣象預報（CC BY 4.0）・今天 ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')} 掃描`;
     if (!picks.length) {
-      body.innerHTML = '今天全台景點都沒有特別突出的預測（未達大景預警門檻），明天再來看看。';
+      body.innerHTML = '今天全台景點都沒有特別突出的預測（未達大景預警門檻），可以按上方按鈕到地圖看各景點現在的分數。';
       return;
     }
     body.innerHTML = picks.map((p, i) => {
       const meta = KIND_META[p.kind];
-      return `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div>${meta.icon} <b>${p.name}</b>　<span class="fc-badge" style="background:${scoreColor(p.score)}">${meta.label} ${p.score}</span></div>
-        <button class="popup-btn" data-pick="${i}">查看預測</button>
+      return `<div class="pick">
+        <div>${meta.icon} <span class="pick-name">${p.name}</span> ${badge(p.score, `${meta.label} ${p.score} 分`)}</div>
+        <button class="secondary" data-pick="${i}">查看預測</button>
       </div>`;
     }).join('');
     body.querySelectorAll('button[data-pick]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const p = picks[Number(btn.dataset.pick)];
-        selectedSpot = { name: p.name, lat: p.lat, lng: p.lng, min_elevation: p.min_elevation, types: p.types };
-        clearChipSelection();
-        setCoords(p.lat, p.lng, p.name);
-        document.getElementById('btnWeather').click();
-        document.getElementById('countdownLabel').scrollIntoView({ behavior: 'smooth' });
-      });
+      btn.addEventListener('click', () => openPick(picks[Number(btn.dataset.pick)]));
     });
   }
 
@@ -707,14 +817,29 @@
     const cached = loadDailyPicksCache();
     if (cached) { renderDailyPicks(cached); return; }
     try {
-      const picks = await computeDailyPicks();
-      saveDailyPicksCache(picks);
-      renderDailyPicks(picks);
+      const result = await computeDailyPicks();
+      saveDailyPicksCache(result);
+      renderDailyPicks(result);
     } catch (e) {
-      document.getElementById('dailyPicksBody').textContent = '推薦計算失敗，請稍後重新整理頁面再試。';
+      dailyPicks = [];
+      document.getElementById('dailyPicksBody').textContent = '推薦計算失敗（氣象服務暫時忙碌），請稍後重新整理頁面再試；也可以直接在下方選景點。';
     }
   }
-  initDailyPicks();
+  dailyPicksPromise = initDailyPicks();
+
+  // 首屏主要行動：有推薦就直接打開分數最高的那一處；今天沒有大景就去地圖看全部景點
+  document.getElementById('btnBestToday').addEventListener('click', async () => {
+    if (dailyPicks === null) {
+      document.getElementById('btnBestToday').textContent = '🔭 掃描中，稍等一下…';
+      await dailyPicksPromise;
+      document.getElementById('btnBestToday').textContent = '🔭 看今天哪裡最好拍';
+    }
+    if (dailyPicks && dailyPicks.length) openPick(dailyPicks[0]);
+    else location.hash = '#map';
+  });
+  document.getElementById('btnGoPick').addEventListener('click', () => {
+    document.getElementById('locCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   // ---- 黃金/藍調時刻倒數 ----
   let countdownTimer = null;
@@ -773,7 +898,7 @@
   function renderGlowCard(glow, title) {
     const b = glow.breakdown;
     return `<div class="score-card" data-concept="glow">
-      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(glow.score)}">${glow.score}</span></div>
+      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(glow.score)}">${glow.score}</span></div>
       <div class="score-factors">
         ${factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score)}
         ${factorBar('中高雲量(40-70%最佳)', Math.min(100, b.midHighCloud.value) + '%', b.midHighCloud.score)}
@@ -796,7 +921,7 @@
         : `。你選的機位（${selectedSpot.min_elevation}m）接近雲層高度，可能置身雲霧中`;
     }
     return `<div class="score-card" data-concept="sea">
-      <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><a class="info-link" href="#about:sea">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(sea.score)}">${sea.score}</span></div>
+      <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><a class="info-link" href="#about:sea">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(sea.score)}">${sea.score}</span></div>
       <div class="score-factors">
         ${factorBar('逆溫強度(925hPa較地面暖越好)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
         ${factorBar('逆溫層厚度(850hPa續暖代表夠厚)', b.inversionDepth.value.toFixed(1) + '°C', b.inversionDepth.score)}
@@ -812,7 +937,7 @@
   function renderStarsCard(stars) {
     const b = stars.breakdown;
     return `<div class="score-card" data-concept="stars">
-      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(stars.score)}">${stars.score}</span></div>
+      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(stars.score)}">${stars.score}</span></div>
       <div class="score-factors">
         ${factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score)}
         ${factorBar('月相亮度', b.moonPhase.value + '%', b.moonPhase.score)}
@@ -826,7 +951,7 @@
   function renderLiuliCard(liuli) {
     const b = liuli.breakdown;
     return `<div class="score-card" data-concept="liuli">
-      <div class="score-head"><span class="score-icon">💎</span><span class="score-title">琉璃光指數</span><a class="info-link" href="#about:liuli">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreColor(liuli.score)}">${liuli.score}</span></div>
+      <div class="score-head"><span class="score-icon">💎</span><span class="score-title">琉璃光指數</span><a class="info-link" href="#about:liuli">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(liuli.score)}">${liuli.score}</span></div>
       <div class="score-factors">
         ${factorBar('逆溫強度(谷地夠不夠鎖霧)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
         ${factorBar('能見度(500-3000m最佳)', Math.round(b.visibility.value) + 'm', b.visibility.score)}
@@ -919,28 +1044,28 @@
       if (showGlow) {
         const r = scoreAtTarget(data, glowTarget, window.WeatherMath.fieryGlowScore);
         if (r) {
-          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">🔥 ${r.result.score}</span>`);
+          badges.push(`${badge(r.result.score, `🔥 ${r.result.score}`)}`);
           details.push(renderGlowCard(r.result, glowLabel));
         }
       }
       if (showSea) {
         const r = scoreAtTarget(data, seaTarget, window.WeatherMath.seaOfCloudsScore);
         if (r) {
-          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">☁️ ${r.result.score}</span>`);
+          badges.push(`${badge(r.result.score, `☁️ ${r.result.score}`)}`);
           details.push(renderSeaCard(r.result, r.h, groundElevationM));
         }
       }
       if (showStars) {
         const r = scoreAtTarget(data, nightTarget, window.WeatherMath.starsScore);
         if (r) {
-          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">✨ ${r.result.score}</span>`);
+          badges.push(`${badge(r.result.score, `✨ ${r.result.score}`)}`);
           details.push(renderStarsCard(r.result));
         }
       }
       if (showLiuli) {
         const r = scoreAtTarget(data, nightTarget, window.WeatherMath.liuliGuangScore);
         if (r) {
-          badges.push(`<span class="fc-badge" style="background:${scoreColor(r.result.score)}">💎 ${r.result.score}</span>`);
+          badges.push(`${badge(r.result.score, `💎 ${r.result.score}`)}`);
           details.push(renderLiuliCard(r.result));
         }
       }
@@ -1031,7 +1156,7 @@
         const meta = KIND_META[kind];
         const result = meta.scoreFn(hK);
         const timeLabel = target.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-        lines.push(`${meta.icon} ${meta.label}預測（${timeLabel}）：<span class="fc-badge" style="background:${scoreColor(result.score)}">${result.score}</span>${result.alert ? '　值得留意' : ''}`);
+        lines.push(`${meta.icon} ${meta.label}預測（${timeLabel}）：${badge(result.score, `${result.score}`)}${result.alert ? '　值得留意' : ''}`);
       });
       blueLine.innerHTML = lines.join('<br>');
     } catch (err) {
@@ -1061,6 +1186,7 @@
   }
   function renderCustomSpotList() {
     const list = loadCustomSpots();
+    document.getElementById('statSaved').textContent = list.length;
     const container = document.getElementById('customSpotList');
     if (!list.length) { container.innerHTML = '<p class="muted">目前沒有自訂地點</p>'; return; }
     container.innerHTML = list.map((s, i) => `
@@ -1121,6 +1247,8 @@
     try { localStorage.removeItem(LAST_LOCATION_KEY); } catch (e) { /* 清不掉就算了 */ }
     selectedSpot = null;
     coords = null;
+    document.getElementById('mainEl').classList.add('no-loc');
+    document.getElementById('cwaRefCard').style.display = 'none';
     clearChipSelection();
     document.getElementById('locStatus').textContent = '尚未定位';
     document.getElementById('btnWeather').disabled = true;
@@ -1156,7 +1284,12 @@
       location.reload();
     });
 
-    navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // 2026-10-12：等頁面載完再過 4 秒才註冊（sw 安裝時會預先快取 icon／leaflet 等，別跟首屏搶頻寬）
+    const swReady = new Promise((resolve) => {
+      const go = () => setTimeout(resolve, 4000);
+      if (document.readyState === 'complete') go(); else window.addEventListener('load', go);
+    });
+    swReady.then(() => navigator.serviceWorker.register('./sw.js')).then((reg) => {
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         nw.addEventListener('statechange', () => {
@@ -1173,7 +1306,7 @@
         if (document.visibilityState === 'visible') reg.update().catch(() => {});
       });
       setInterval(() => reg.update().catch(() => {}), 20 * 60 * 1000);
-    });
+    }).catch(() => { /* 註冊失敗（例如 file://）不影響使用 */ });
   }
 }());
 </script>

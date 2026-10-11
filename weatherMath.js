@@ -191,11 +191,56 @@
     'windspeed_10m'
   ];
 
+  // 2026-10-12：同一次開啟內的預報快取（30 分鐘）。今日推薦／地圖原本每個景點各打一次
+  // Open-Meteo（56 個同時送出），常被 429 限流→失敗請求＋console 錯誤；改成多點一次查
+  // （Open-Meteo 支援 latitude=a,b,c 逗號清單，回傳同順序陣列），結果放進這個快取，
+  // 之後點景點看預測直接命中，不再重打。
+  const HOURLY_TTL_MS = 30 * 60 * 1000;
+  const hourlyCache = new Map();
+  const hourlyKey = (lat, lng, days) => `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)},${days}`;
+  function hourlyCached(lat, lng, days) {
+    const hit = hourlyCache.get(hourlyKey(lat, lng, days));
+    return hit && Date.now() - hit.t < HOURLY_TTL_MS ? hit.data : null;
+  }
+
   async function fetchHourlyWeather(lat, lng, days = 4) {
+    const cached = hourlyCached(lat, lng, days);
+    if (cached) return cached;
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=${days}&timezone=auto`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Open-Meteo API 錯誤：${res.status}`);
-    return res.json();
+    const data = await res.json();
+    hourlyCache.set(hourlyKey(lat, lng, days), { t: Date.now(), data });
+    return data;
+  }
+
+  // 多個地點一次查（每批最多 50 點，URL 長度與 Open-Meteo 建議都在範圍內）。
+  // 回傳與 points 同順序的陣列；某一批失敗時該批位置為 null，不擋其他批。
+  async function fetchHourlyWeatherBatch(points, days = 4) {
+    const out = points.map((p) => hourlyCached(p.lat, p.lng, days));
+    const todo = out.map((d, i) => (d ? -1 : i)).filter((i) => i >= 0);
+    const BATCH = 50;
+    for (let k = 0; k < todo.length; k += BATCH) {
+      const idx = todo.slice(k, k + BATCH);
+      const lats = idx.map((i) => points[i].lat).join(',');
+      const lngs = idx.map((i) => points[i].lng).join(',');
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=${days}&timezone=auto`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Open-Meteo API 錯誤：${res.status}`);
+        let arr = await res.json();
+        if (!Array.isArray(arr)) arr = [arr];
+        idx.forEach((i, j) => {
+          const data = arr[j];
+          if (!data || !data.hourly) return;
+          out[i] = data;
+          hourlyCache.set(hourlyKey(points[i].lat, points[i].lng, days), { t: Date.now(), data });
+        });
+      } catch (e) {
+        if (k === 0 && todo.length <= BATCH) throw e;
+      }
+    }
+    return out;
   }
 
   // ---- Ensemble(多組模式成員)：估算預測信心區間，不是取代主要預測 ----
@@ -346,6 +391,7 @@
     lclHeightAGL,
     cloudBaseAMSL,
     fetchHourlyWeather,
+    fetchHourlyWeatherBatch,
     fetchEnsembleWeather,
     ensembleConfidence,
     nearestHourIndex,
