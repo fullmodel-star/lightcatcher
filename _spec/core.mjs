@@ -182,5 +182,18 @@ function check(name, cond) {
   check('[9] memberCount正確', confDiverse.memberCount === 5);
 }
 
+// [10] 火燒雲中高雲甜蜜區間：UI 因子標籤要跟公式實際滿分區間一致（2026-10-12：標籤曾停在舊的 40-70%）
+{
+  const sub = (mh) => WM.fieryGlowScore({ cloudLow: 0, cloudMid: mh, cloudHigh: 0, humidity: 40, visibility: 20000 }).breakdown.midHighCloud.score;
+  const lo = 40, hi = 80;
+  check('[10] 下緣 40% 滿分', sub(lo) === 100);
+  check('[10] 上緣 80% 滿分', sub(hi) === 100);
+  check('[10] 低於下緣不滿分', sub(lo - 5) < 100);
+  check('[10] 高於上緣不滿分', sub(hi + 5) < 100);
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  check('[10] UI 標籤寫 40-80%最佳', html.includes(`中高雲量(${lo}-${hi}%最佳)`));
+  check('[10] UI 沒殘留舊的 40-70%', !html.includes('中高雲量(40-70%'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

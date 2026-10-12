@@ -177,7 +177,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.15</span>
+  <span class="ver">v0.16</span>
 </header>
 
 <nav id="nav">
@@ -901,7 +901,7 @@
       <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(glow.score)}">${glow.score}</span></div>
       <div class="score-factors">
         ${factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score)}
-        ${factorBar('中高雲量(40-70%最佳)', Math.min(100, b.midHighCloud.value) + '%', b.midHighCloud.score)}
+        ${factorBar('中高雲量(40-80%最佳)', Math.min(100, b.midHighCloud.value) + '%', b.midHighCloud.score)}
         ${factorBar('濕度(越低越通透)', b.humidity.value + '%', b.humidity.score)}
         ${factorBar('能見度', Math.round(b.visibility.value / 1000) + 'km', b.visibility.score)}
       </div>
