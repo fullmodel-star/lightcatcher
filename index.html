@@ -63,6 +63,10 @@
   main{padding:16px;max-width:560px;margin:0 auto}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
   .card h2{font-size:17px;margin:0 0 10px;color:var(--ink);font-weight:700}
+  .spot-now{margin:0 0 8px;font-size:15px;font-weight:700;color:var(--ink)}
+  .spot-now:empty{display:none}
+  #countdownCard,#locCard{scroll-margin-top:64px}
+  .sea-below{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:var(--snow);border:1px solid var(--line);font-size:14px;color:var(--ink)}
   /* 預測說明分頁是多行中文密排長句條列，瀏覽器預設line-height(~1.15-1.2)讀起來吃力，
      比照品牌footer(1.5-1.7)的密度補上 */
   section[data-view="about"] .muted{line-height:1.6}
@@ -177,7 +181,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.16</span>
+  <span class="ver">v0.17</span>
 </header>
 
 <nav id="nav">
@@ -232,7 +236,8 @@
       <button type="button" class="secondary" id="btnGoPick">📍 去選一個景點</button>
     </div>
 
-    <div class="card needs-loc">
+    <div class="card needs-loc" id="countdownCard">
+      <p class="spot-now" id="spotNowLine"></p>
       <h2 id="countdownLabel">下一個光影時刻</h2>
       <div class="countdown" id="countdownTime">--:--:--</div>
       <div class="countdown-label" id="countdownEvent">請先定位</div>
@@ -554,12 +559,47 @@
     document.querySelectorAll('#spotChips .chip').forEach((b) => b.classList.remove('active'));
   }
 
+  // 2026-10-13 UI/UX 走查：「抓取失敗：Failed to fetch」「Open-Meteo API 錯誤：400」改成可行動的中文
+  function friendlyFetchError(err) {
+    const msg = String((err && err.message) || err || '');
+    if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+      return '⚠️ 目前沒有網路（或連不上氣象服務），拿不到最新預報；倒數時間不需要網路仍可使用。連上網路後再按一次「重新抓取氣象預測」。';
+    }
+    if (/\b400\b/.test(msg)) {
+      return '⚠️ 氣象服務不接受這組座標（座標可能不正確）。請重新選景點，或檢查手動輸入的經緯度。';
+    }
+    if (/\b(429|5\d\d)\b/.test(msg)) {
+      return '⚠️ 氣象服務暫時忙碌或維護中，請過幾分鐘再按「重新抓取氣象預測」。（' + msg + '）';
+    }
+    return '⚠️ 抓取失敗：' + msg + '。請稍後再試一次。';
+  }
+
+  // 2026-10-13：選了景點後自動捲到結果，並讓手機返回鍵先回到「選地點」而不是直接離開 App
+  let resultHistoryPushed = false;
+  function showResultForSpot() {
+    const card = document.getElementById('countdownCard');
+    if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    if (!resultHistoryPushed && (location.hash === '' || location.hash === '#dashboard')) {
+      history.pushState({ lcResult: true }, '', location.href);
+      resultHistoryPushed = true;
+    }
+  }
+  window.addEventListener('popstate', (e) => {
+    if (resultHistoryPushed && !(e.state && e.state.lcResult)) {
+      resultHistoryPushed = false;
+      const loc = document.getElementById('locCard');
+      if (loc && (location.hash === '' || location.hash === '#dashboard')) loc.scrollIntoView({ block: 'start' });
+    }
+  });
+
   const LAST_LOCATION_KEY = 'lc_last_location_v1';
 
   function setCoords(lat, lng, source) {
     coords = { lat, lng };
     document.getElementById('mainEl').classList.remove('no-loc');
     document.getElementById('locStatus').textContent = `${source}：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const spotNow = document.getElementById('spotNowLine');
+    if (spotNow) spotNow.textContent = `📍 目前查看：${source}（${lat.toFixed(4)}, ${lng.toFixed(4)}）`;
     document.getElementById('btnWeather').disabled = false;
     updateCountdown();
     // 記住這次的地點，下次開啟App直接帶入不用重新選——GPS座標也一併記，
@@ -603,10 +643,20 @@
   document.getElementById('btnManual').addEventListener('click', () => {
     const lat = parseFloat(document.getElementById('manualLat').value);
     const lng = parseFloat(document.getElementById('manualLng').value);
-    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+    // 2026-10-13 UI/UX 走查：之前緯度 99／經度 999 照單全收、亂碼靜默吃掉，這裡擋下並用中文說明
+    const locStatus = document.getElementById('locStatus');
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      locStatus.textContent = '⚠️ 請在兩格都輸入數字座標（例如緯度 24.1371、經度 121.2757）';
+      return;
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      locStatus.textContent = `⚠️ 座標超出範圍：緯度要在 -90～90、經度要在 -180～180 之間（你輸入的是 ${lat}, ${lng}）。台灣大約是緯度 21.9～25.3、經度 120～122。`;
+      return;
+    }
     selectedSpot = null;
     clearChipSelection();
     setCoords(lat, lng, '手動輸入');
+    showResultForSpot();
   });
 
   // ---- 知名景點快選（同一地點若有多種現象，合併成一個按鈕，選中後全部一起顯示） ----
@@ -678,6 +728,7 @@
         btn.classList.add('active');
         setCoords(loc.lat, loc.lng, loc.name);
         document.getElementById('btnWeather').click();
+        showResultForSpot();
       });
       // chips是非同步載入的，如果上次記住的地點剛好是精選景點之一，
       // 補標記active讓畫面看起來跟現在顯示的預測一致，不會像沒選東西
@@ -914,8 +965,10 @@
     const b = sea.breakdown;
     const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
     let heightNote = `雲海高度估計約 <b>${cb.amslM}m</b>（海拔，理論估算非實測）`;
+    let below = false;
     if (selectedSpot && Number.isFinite(selectedSpot.min_elevation)) {
       const diff = selectedSpot.min_elevation - cb.amslM;
+      below = diff < -100;
       heightNote += diff > 100 ? `。你選的機位（${selectedSpot.min_elevation}m）在雲層之上，適合拍攝 ✅`
         : diff < -100 ? `。你選的機位（${selectedSpot.min_elevation}m）可能在雲層之下，看不到雲海`
         : `。你選的機位（${selectedSpot.min_elevation}m）接近雲層高度，可能置身雲霧中`;
@@ -929,7 +982,11 @@
         ${factorBar('地表風速(靜穩最佳)', b.windSpeed.value.toFixed(1) + 'm/s', b.windSpeed.score)}
       </div>
       <p class="muted" style="margin:8px 0 0">${heightNote}</p>
-      ${sea.alert ? '<div class="ring-alert">☁️ 大景預警</div>' : ''}
+      ${/* 2026-10-13 UI/UX 走查：機位估計在雲層之下時，同一張卡又亮「大景預警」互相打架。
+           指數只看大氣條件（逆溫/濕度/風）；機位能不能站在雲上是另一件事——兩者都成立才亮預警，
+           否則改用一句話講清楚「條件好，但這個機位可能在雲裡/雲下」。 */ ''}
+      ${sea.alert && !below ? '<div class="ring-alert">☁️ 大景預警</div>' : ''}
+      ${sea.alert && below ? '<p class="sea-below"><b>結論：這個機位這個時段看到雲海的機會低。</b>大氣條件達到雲海門檻（指數高），但估算的雲層高度高於你的機位，你可能是在雲裡或雲下（看到霧或陰天），所以不亮「大景預警」。想拍雲海要往比雲層更高的地方。</p>' : ''}
       <div class="confidence-slot"></div>
     </div>`;
   }
@@ -1116,7 +1173,17 @@
         if (!fn || !slot) return;
         const conf = window.WeatherMath.ensembleConfidence(ens.hourly, idx, fn);
         if (conf) {
-          slot.innerHTML = `<p class="muted" style="margin-top:6px">🎯 模型信心：<b>${conf.level}</b>（${conf.memberCount}組模式中80%落在${conf.p10}~${conf.p90}分）</p>`;
+          // 2026-10-13 UI/UX 走查：上方大字分數（主預報）可能不在多組模式的 80% 區間內（例：83 分 vs 41~48 分），
+          // 之前沒說明，看起來互相矛盾。落在區間外時明講「主預報比多數模式樂觀／保守」。
+          const numEl = card.querySelector('.score-num');
+          const main = numEl ? Number(numEl.textContent) : NaN;
+          let gap = '';
+          if (Number.isFinite(main) && (main > conf.p90 || main < conf.p10)) {
+            gap = main > conf.p90
+              ? `<br>⚠️ 上方 ${main} 分是主預報模式的結果，<b>比多數模式樂觀</b>（多數落在 ${conf.p10}~${conf.p90} 分）——模式間意見分歧，請把這個分數打折看。`
+              : `<br>ℹ️ 上方 ${main} 分是主預報模式的結果，<b>比多數模式保守</b>（多數落在 ${conf.p10}~${conf.p90} 分）——實際可能比主預報好一些。`;
+          }
+          slot.innerHTML = `<p class="muted" style="margin-top:6px">🎯 模型信心：<b>${conf.level}</b>（${conf.memberCount}組模式中80%落在${conf.p10}~${conf.p90}分）${gap}</p>`;
         }
       });
     } catch (e) { /* 信心區間抓取失敗就不顯示，不用報錯打擾使用者 */ }
@@ -1160,7 +1227,7 @@
       });
       blueLine.innerHTML = lines.join('<br>');
     } catch (err) {
-      statusEl.textContent = '抓取失敗：' + err.message;
+      statusEl.textContent = friendlyFetchError(err);
     }
 
     try {
