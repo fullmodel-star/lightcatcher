@@ -12,29 +12,73 @@
 <meta name="theme-color" content="#004F44">
 <!-- 2026-10-12：拿掉 Google Fonts（Noto Sans/Serif TC 首載約 1.3MB），改系統字型堆疊；有裝 Noto 的裝置照樣會用到 -->
 <script>
-  // 深色模式偏好要在CSS套用前就設定好，不然會先閃一下淺色再切換
-  try { document.documentElement.setAttribute('data-theme', localStorage.getItem('lc_theme_v1') || 'light'); } catch (e) {}
+  // 主題要在 CSS 套用前就設定好，不然會先閃一下淺色再切換。
+  // 2026-10-19 v0.19：四個選項 auto（跟系統 prefers-color-scheme）／light／dark／night（夜拍模式，暗紅單色）。
+  // 舊版存的 'light'／'dark' 照用；沒存過＝auto。
+  (function () {
+    var KEY = 'lc_theme_v1', pref = 'auto';
+    try { pref = localStorage.getItem(KEY) || 'auto'; } catch (e) {}
+    if (['auto', 'light', 'dark', 'night'].indexOf(pref) < 0) pref = 'auto';
+    var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    var BAR = { light: '#004F44', dark: '#002E28', night: '#050202' };
+    function apply() {
+      var t = pref === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : pref;
+      var root = document.documentElement;
+      root.setAttribute('data-theme', t);
+      root.setAttribute('data-theme-pref', pref);
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', BAR[t]);
+      try { document.dispatchEvent(new Event('lc-theme')); } catch (e) {}
+    }
+    window.__lcTheme = {
+      get: function () { return pref; },
+      set: function (p) { pref = p; try { localStorage.setItem(KEY, p); } catch (e) {} apply(); }
+    };
+    if (mq) {
+      var onChange = function () { if (pref === 'auto') apply(); };
+      if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange);
+    }
+    apply();
+  })();
 </script>
 <style>
+  /* 2026-10-19 v0.19「天色時鐘・玄冰青」：山脈家族 k2 玄冰青配色（淺＋深）＋第三主題「夜拍模式」（暗紅單色）。
+     樣稿＝04_管理工具/登山家族外觀 v3 選版 402b（淺／深）＋402c 深色（夜拍）。
+     沿用舊 token 名稱（--ink/--steel/--snow/--paper/--surface…），新增 --acc（強調）、--s0~3／--t0~3（分數狀態填色／文字）、
+     --blue-band／--gold-band（錶盤時段弧）。主題由 <html data-theme> 決定：light／dark／night；
+     「自動」跟系統 prefers-color-scheme（head 內腳本換算成 light/dark）。 */
   :root{
-    /* 2026-10-12：--steel #6E8BA3→#4E6A82（白底對比 3.6→5.7，Lighthouse color-contrast）；
-       頁首深色列上的副標改用 --bar-sub，不跟著變深 */
-    --ink:#141E2B; --ink2:#2C4459; --steel:#4E6A82; --snow:#EEF3F6; --paper:#F7F3EC;
-    --k2:#004F44; --good:#3F6B4F; --warn:#DE9A45; --line:#BECBD5; --surface:#fff;
-    --bar-bg:#141E2B; --bar-fg:#EEF3F6; --bar-sub:#9FB4C6;
-    /* v2026-08-24：品牌稽核抓到——k2(#A64B38)是山脈家族色，只能用在 icon
-       底色跟家族頁 hero，這支 App 卻拿它當分頁籤 active／按鈕／chip 這類
-       小型 UI 元件的強調色，違反 ridgeline-tokens.json 的 family_color_scope
-       （401 山行計畫在 v2.19 就做過同一輪清理，這支一直沒跟上）。改用
-       --ink2（一般 UI）；--bad 是新增的，跟機率地圖圖例／scoreColor() 那組
-       「低綠/中金/高紅」三階色階共用同一個紅，語意是「高機率/預警」不是
-       品牌色，數值剛好跟 --k2 相同（品牌系統沒有另外定義危險紅）。 */
+    --ink:#0F2A26; --ink2:#00695A; --btn-fg:#FFFFFF; --steel:#46625C; --snow:#E3EEEA; --paper:#EDF3F1;
+    --k2:#004F44; --good:#3F6B4F; --warn:#DE9A45; --line:#C7D7D2; --surface:#FFFFFF;
+    --acc:#00695A; --acc-soft:#D5ECE6;
+    --bar-bg:#004F44; --bar-fg:#F2F8F6; --bar-sub:#B9DBD3;
     --bad:#A64B38;
+    --s0:#4E9A68; --s1:#E3B23C; --s2:#E07B2E; --s3:#C8402F;
+    --t0:#2E6B45; --t1:#7E5E0A; --t2:#9C4A12; --t3:#A3352A;
+    --blue-band:#4C6FD0; --gold-band:#E9A23B; --sun:#FFD25A; --moon:#E8ECF7; --track-label:#1B1B1B;
+    --contour:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22390%22%20height%3D%22760%22%20viewBox%3D%220%200%20390%20760%22%3E%3Cpath%20d%3D%22M399%20140L400%20155L387%20166L375%20176L362%20185L345%20185L330%20177L319%20172L302%20178L276%20183L259%20173L265%20154L279%20140L284%20130L283%20118L290%20108L302%20102L314%2093L330%2081L350%2079L362%2095L361%20115L363%20125L381%20129L399%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M462%20140L466%20169L441%20191L408%20202L382%20213L359%20226L330%20232L300%20228L271%20222L238%20214L212%20195L209%20166L226%20140L238%20120L237%2097L241%2069L264%2049L298%2043L330%2043L362%2046L389%2058L405%2080L416%20100L437%20117L462%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M516%20140L518%20180L491%20214L447%20233L407%20246L372%20266L330%20285L281%20287L238%20268L203%20241L175%20212L159%20177L164%20140L178%20107L186%2073L198%2034L231%202L281%20-6L330%204L372%2015L414%2024L452%2042L480%2071L499%20104L516%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M567%20140L558%20189L534%20234L490%20268L438%20290L388%20312L330%20334L264%20338L205%20313L167%20270L140%20228L114%20186L99%20140L106%2092L128%2047L159%203L204%20-34L266%20-50L330%20-41L385%20-23L439%20-11L498%206L545%2041L566%2089L567%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%221.6%22%2F%3E%3Cpath%20d%3D%22M621%20140L598%20198L573%20252L534%20303L475%20341L405%20365L330%20379L250%20378L177%20352L127%20302L96%20248L65%20197L37%20140L34%2077L67%2019L121%20-27L183%20-64L254%20-87L330%20-88L401%20-73L469%20-53L540%20-28L602%2015L629%2076L621%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M678%20140L648%20208L616%20272L576%20337L512%20392L424%20420L330%20424L239%20411L154%20383L86%20335L40%20274L6%20209L-22%20140L-28%2063L10%20-8L81%20-59L162%20-93L243%20-120L330%20-136L420%20-130L504%20-102L581%20-61L646%20-6L682%2064L678%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M734%20140L711%20222L670%20297L618%20370L543%20436L441%20472L330%20470L228%20445L133%20413L45%20368L-23%20303L-63%20224L-82%20140L-77%2053L-37%20-29L41%20-91L135%20-130L230%20-159L330%20-183L439%20-185L541%20-153L622%20-94L684%20-23L725%2055L734%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cg%20transform%3D%22translate(-260%20470)%22%3E%3Cpath%20d%3D%22M399%20140L400%20155L387%20166L375%20176L362%20185L345%20185L330%20177L319%20172L302%20178L276%20183L259%20173L265%20154L279%20140L284%20130L283%20118L290%20108L302%20102L314%2093L330%2081L350%2079L362%2095L361%20115L363%20125L381%20129L399%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M462%20140L466%20169L441%20191L408%20202L382%20213L359%20226L330%20232L300%20228L271%20222L238%20214L212%20195L209%20166L226%20140L238%20120L237%2097L241%2069L264%2049L298%2043L330%2043L362%2046L389%2058L405%2080L416%20100L437%20117L462%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M516%20140L518%20180L491%20214L447%20233L407%20246L372%20266L330%20285L281%20287L238%20268L203%20241L175%20212L159%20177L164%20140L178%20107L186%2073L198%2034L231%202L281%20-6L330%204L372%2015L414%2024L452%2042L480%2071L499%20104L516%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M567%20140L558%20189L534%20234L490%20268L438%20290L388%20312L330%20334L264%20338L205%20313L167%20270L140%20228L114%20186L99%20140L106%2092L128%2047L159%203L204%20-34L266%20-50L330%20-41L385%20-23L439%20-11L498%206L545%2041L566%2089L567%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%221.6%22%2F%3E%3Cpath%20d%3D%22M621%20140L598%20198L573%20252L534%20303L475%20341L405%20365L330%20379L250%20378L177%20352L127%20302L96%20248L65%20197L37%20140L34%2077L67%2019L121%20-27L183%20-64L254%20-87L330%20-88L401%20-73L469%20-53L540%20-28L602%2015L629%2076L621%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M678%20140L648%20208L616%20272L576%20337L512%20392L424%20420L330%20424L239%20411L154%20383L86%20335L40%20274L6%20209L-22%20140L-28%2063L10%20-8L81%20-59L162%20-93L243%20-120L330%20-136L420%20-130L504%20-102L581%20-61L646%20-6L682%2064L678%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M734%20140L711%20222L670%20297L618%20370L543%20436L441%20472L330%20470L228%20445L133%20413L45%20368L-23%20303L-63%20224L-82%20140L-77%2053L-37%20-29L41%20-91L135%20-130L230%20-159L330%20-183L439%20-185L541%20-153L622%20-94L684%20-23L725%2055L734%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%23C6D8D2%22%20stroke-width%3D%220.9%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    color-scheme:light;
   }
-  /* 深色模式：只調整結構性的中性色(頁面底色/文字/邊框/卡片底色)，
-     品牌強調色(--k2)跟頭尾常駐深色列(--bar-bg/--bar-fg)刻意不隨主題變化 */
+  /* 深色：深青黑＋薄荷螢光（像錶面夜光） */
   [data-theme="dark"]{
-    --paper:#12181F; --ink:#E8EDF2; --steel:#9FB4C6; --snow:#1E2731; --line:#2A3946; --surface:#182230;
+    --ink:#DDEDE8; --ink2:#4FD1B5; --btn-fg:#04201B; --steel:#9DBDB5; --snow:#12302A; --paper:#06110F;
+    --line:#24423C; --surface:#0D1D1A; --acc:#4FD1B5; --acc-soft:#123A33; --bad:#FF8B76;
+    --bar-bg:#002E28; --bar-fg:#DDEDE8; --bar-sub:#9DC4BA;
+    --s0:#4E9A68; --s1:#E3B23C; --s2:#E07B2E; --s3:#D9503D;
+    --t0:#7FD39C; --t1:#F2CD5C; --t2:#F5A05A; --t3:#FF8B76;
+    --contour:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22390%22%20height%3D%22760%22%20viewBox%3D%220%200%20390%20760%22%3E%3Cpath%20d%3D%22M399%20140L400%20155L387%20166L375%20176L362%20185L345%20185L330%20177L319%20172L302%20178L276%20183L259%20173L265%20154L279%20140L284%20130L283%20118L290%20108L302%20102L314%2093L330%2081L350%2079L362%2095L361%20115L363%20125L381%20129L399%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M462%20140L466%20169L441%20191L408%20202L382%20213L359%20226L330%20232L300%20228L271%20222L238%20214L212%20195L209%20166L226%20140L238%20120L237%2097L241%2069L264%2049L298%2043L330%2043L362%2046L389%2058L405%2080L416%20100L437%20117L462%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M516%20140L518%20180L491%20214L447%20233L407%20246L372%20266L330%20285L281%20287L238%20268L203%20241L175%20212L159%20177L164%20140L178%20107L186%2073L198%2034L231%202L281%20-6L330%204L372%2015L414%2024L452%2042L480%2071L499%20104L516%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M567%20140L558%20189L534%20234L490%20268L438%20290L388%20312L330%20334L264%20338L205%20313L167%20270L140%20228L114%20186L99%20140L106%2092L128%2047L159%203L204%20-34L266%20-50L330%20-41L385%20-23L439%20-11L498%206L545%2041L566%2089L567%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%221.6%22%2F%3E%3Cpath%20d%3D%22M621%20140L598%20198L573%20252L534%20303L475%20341L405%20365L330%20379L250%20378L177%20352L127%20302L96%20248L65%20197L37%20140L34%2077L67%2019L121%20-27L183%20-64L254%20-87L330%20-88L401%20-73L469%20-53L540%20-28L602%2015L629%2076L621%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M678%20140L648%20208L616%20272L576%20337L512%20392L424%20420L330%20424L239%20411L154%20383L86%20335L40%20274L6%20209L-22%20140L-28%2063L10%20-8L81%20-59L162%20-93L243%20-120L330%20-136L420%20-130L504%20-102L581%20-61L646%20-6L682%2064L678%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M734%20140L711%20222L670%20297L618%20370L543%20436L441%20472L330%20470L228%20445L133%20413L45%20368L-23%20303L-63%20224L-82%20140L-77%2053L-37%20-29L41%20-91L135%20-130L230%20-159L330%20-183L439%20-185L541%20-153L622%20-94L684%20-23L725%2055L734%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cg%20transform%3D%22translate(-260%20470)%22%3E%3Cpath%20d%3D%22M399%20140L400%20155L387%20166L375%20176L362%20185L345%20185L330%20177L319%20172L302%20178L276%20183L259%20173L265%20154L279%20140L284%20130L283%20118L290%20108L302%20102L314%2093L330%2081L350%2079L362%2095L361%20115L363%20125L381%20129L399%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M462%20140L466%20169L441%20191L408%20202L382%20213L359%20226L330%20232L300%20228L271%20222L238%20214L212%20195L209%20166L226%20140L238%20120L237%2097L241%2069L264%2049L298%2043L330%2043L362%2046L389%2058L405%2080L416%20100L437%20117L462%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M516%20140L518%20180L491%20214L447%20233L407%20246L372%20266L330%20285L281%20287L238%20268L203%20241L175%20212L159%20177L164%20140L178%20107L186%2073L198%2034L231%202L281%20-6L330%204L372%2015L414%2024L452%2042L480%2071L499%20104L516%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M567%20140L558%20189L534%20234L490%20268L438%20290L388%20312L330%20334L264%20338L205%20313L167%20270L140%20228L114%20186L99%20140L106%2092L128%2047L159%203L204%20-34L266%20-50L330%20-41L385%20-23L439%20-11L498%206L545%2041L566%2089L567%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%221.6%22%2F%3E%3Cpath%20d%3D%22M621%20140L598%20198L573%20252L534%20303L475%20341L405%20365L330%20379L250%20378L177%20352L127%20302L96%20248L65%20197L37%20140L34%2077L67%2019L121%20-27L183%20-64L254%20-87L330%20-88L401%20-73L469%20-53L540%20-28L602%2015L629%2076L621%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M678%20140L648%20208L616%20272L576%20337L512%20392L424%20420L330%20424L239%20411L154%20383L86%20335L40%20274L6%20209L-22%20140L-28%2063L10%20-8L81%20-59L162%20-93L243%20-120L330%20-136L420%20-130L504%20-102L581%20-61L646%20-6L682%2064L678%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M734%20140L711%20222L670%20297L618%20370L543%20436L441%20472L330%20470L228%20445L133%20413L45%20368L-23%20303L-63%20224L-82%20140L-77%2053L-37%20-29L41%20-91L135%20-130L230%20-159L330%20-183L439%20-185L541%20-153L622%20-94L684%20-23L725%2055L734%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%2313302A%22%20stroke-width%3D%220.9%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    color-scheme:dark;
+  }
+  /* 夜拍模式：全畫面暗紅單色，暗處看手機不破壞暗適應；狀態色改用紅色明度（深→亮＝低→高） */
+  [data-theme="night"]{
+    --ink:#FF8A7A; --ink2:#FF5A47; --btn-fg:#1A0505; --steel:#D06A5E; --snow:#1F0E0D; --paper:#0A0505;
+    --line:#3A1916; --surface:#160B0B; --acc:#FF5A47; --acc-soft:#3A1210;
+    --bar-bg:#050202; --bar-fg:#FF8A7A; --bar-sub:#C25A4F; --good:#7A2A22; --warn:#C2392B; --bad:#FF5A47;
+    --s0:#5A1D18; --s1:#8A2A21; --s2:#C2392B; --s3:#FF5A47;
+    --t0:#C9685D; --t1:#E0705F; --t2:#FF7A66; --t3:#FF9A88;
+    --blue-band:#B03A2E; --gold-band:#FF7A5C; --sun:#FF6A4D; --moon:#FFB0A0; --track-label:#1A0505;
+    --contour:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22390%22%20height%3D%22760%22%20viewBox%3D%220%200%20390%20760%22%3E%3Cpath%20d%3D%22M399%20140L400%20155L387%20166L375%20176L362%20185L345%20185L330%20177L319%20172L302%20178L276%20183L259%20173L265%20154L279%20140L284%20130L283%20118L290%20108L302%20102L314%2093L330%2081L350%2079L362%2095L361%20115L363%20125L381%20129L399%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M462%20140L466%20169L441%20191L408%20202L382%20213L359%20226L330%20232L300%20228L271%20222L238%20214L212%20195L209%20166L226%20140L238%20120L237%2097L241%2069L264%2049L298%2043L330%2043L362%2046L389%2058L405%2080L416%20100L437%20117L462%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M516%20140L518%20180L491%20214L447%20233L407%20246L372%20266L330%20285L281%20287L238%20268L203%20241L175%20212L159%20177L164%20140L178%20107L186%2073L198%2034L231%202L281%20-6L330%204L372%2015L414%2024L452%2042L480%2071L499%20104L516%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M567%20140L558%20189L534%20234L490%20268L438%20290L388%20312L330%20334L264%20338L205%20313L167%20270L140%20228L114%20186L99%20140L106%2092L128%2047L159%203L204%20-34L266%20-50L330%20-41L385%20-23L439%20-11L498%206L545%2041L566%2089L567%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%221.6%22%2F%3E%3Cpath%20d%3D%22M621%20140L598%20198L573%20252L534%20303L475%20341L405%20365L330%20379L250%20378L177%20352L127%20302L96%20248L65%20197L37%20140L34%2077L67%2019L121%20-27L183%20-64L254%20-87L330%20-88L401%20-73L469%20-53L540%20-28L602%2015L629%2076L621%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M678%20140L648%20208L616%20272L576%20337L512%20392L424%20420L330%20424L239%20411L154%20383L86%20335L40%20274L6%20209L-22%20140L-28%2063L10%20-8L81%20-59L162%20-93L243%20-120L330%20-136L420%20-130L504%20-102L581%20-61L646%20-6L682%2064L678%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M734%20140L711%20222L670%20297L618%20370L543%20436L441%20472L330%20470L228%20445L133%20413L45%20368L-23%20303L-63%20224L-82%20140L-77%2053L-37%20-29L41%20-91L135%20-130L230%20-159L330%20-183L439%20-185L541%20-153L622%20-94L684%20-23L725%2055L734%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cg%20transform%3D%22translate(-260%20470)%22%3E%3Cpath%20d%3D%22M399%20140L400%20155L387%20166L375%20176L362%20185L345%20185L330%20177L319%20172L302%20178L276%20183L259%20173L265%20154L279%20140L284%20130L283%20118L290%20108L302%20102L314%2093L330%2081L350%2079L362%2095L361%20115L363%20125L381%20129L399%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M462%20140L466%20169L441%20191L408%20202L382%20213L359%20226L330%20232L300%20228L271%20222L238%20214L212%20195L209%20166L226%20140L238%20120L237%2097L241%2069L264%2049L298%2043L330%2043L362%2046L389%2058L405%2080L416%20100L437%20117L462%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M516%20140L518%20180L491%20214L447%20233L407%20246L372%20266L330%20285L281%20287L238%20268L203%20241L175%20212L159%20177L164%20140L178%20107L186%2073L198%2034L231%202L281%20-6L330%204L372%2015L414%2024L452%2042L480%2071L499%20104L516%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M567%20140L558%20189L534%20234L490%20268L438%20290L388%20312L330%20334L264%20338L205%20313L167%20270L140%20228L114%20186L99%20140L106%2092L128%2047L159%203L204%20-34L266%20-50L330%20-41L385%20-23L439%20-11L498%206L545%2041L566%2089L567%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%221.6%22%2F%3E%3Cpath%20d%3D%22M621%20140L598%20198L573%20252L534%20303L475%20341L405%20365L330%20379L250%20378L177%20352L127%20302L96%20248L65%20197L37%20140L34%2077L67%2019L121%20-27L183%20-64L254%20-87L330%20-88L401%20-73L469%20-53L540%20-28L602%2015L629%2076L621%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M678%20140L648%20208L616%20272L576%20337L512%20392L424%20420L330%20424L239%20411L154%20383L86%20335L40%20274L6%20209L-22%20140L-28%2063L10%20-8L81%20-59L162%20-93L243%20-120L330%20-136L420%20-130L504%20-102L581%20-61L646%20-6L682%2064L678%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3Cpath%20d%3D%22M734%20140L711%20222L670%20297L618%20370L543%20436L441%20472L330%20470L228%20445L133%20413L45%20368L-23%20303L-63%20224L-82%20140L-77%2053L-37%20-29L41%20-91L135%20-130L230%20-159L330%20-183L439%20-185L541%20-153L622%20-94L684%20-23L725%2055L734%20140Z%22%20fill%3D%22none%22%20stroke%3D%22%232A1210%22%20stroke-width%3D%220.9%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   /* 2026-10-12：系統字型堆疊（原本從 Google Fonts 載 Noto Sans TC）；主文字 13→15px */
@@ -135,6 +179,108 @@
   /* 還沒選地點時，倒數／即時分數／三日預測三張卡收起，改顯示一張「下一步」卡 */
   main.no-loc section .needs-loc{display:none !important}
   main:not(.no-loc) section .only-no-loc{display:none !important}
+  /* ===== 2026-10-19 v0.19 天色時鐘・玄冰青 ===== */
+  /* 數字用自帶等寬字 JetBrains Mono（OFL，Google Fonts latin 子集，vendor/jetbrains-mono/）；中文照舊走系統字 */
+  @font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:500 800;font-display:swap;
+    src:url(./vendor/jetbrains-mono/JetBrainsMono-latin.woff2) format("woff2");
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215}
+  .m{font-family:"JetBrains Mono",ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  body{background:var(--paper) var(--contour) 0 120px/390px 760px repeat-y}
+  .i{width:20px;height:20px;flex:0 0 auto;vertical-align:-4px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  /* 導覽：Tabler 線條圖示在上、字在下，選中用強調色底線 */
+  nav a{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 7px;font-size:13px;min-height:52px;border-bottom:0;box-shadow:none}
+  nav a.active{color:var(--acc);border-bottom:0;box-shadow:inset 0 -3px 0 var(--acc)}
+  nav a .i{width:22px;height:22px}
+  nav::after{display:none}
+  .card{border-radius:16px}
+  .card h2.h-ic{display:flex;align-items:center;gap:8px}
+  .card h2 .h-r{margin-left:auto;font-size:13px;color:var(--steel);font-weight:500}
+  .cta{background:var(--acc);color:var(--btn-fg)}
+  button{background:var(--ink2);color:var(--btn-fg)}
+  button.secondary{background:var(--snow);color:var(--ink);border:1px solid var(--line)}
+  .chip.active{background:var(--acc);color:var(--btn-fg);border-color:var(--acc)}
+  a{color:var(--acc)}
+  .info-link{color:var(--steel)}
+  /* 目前地點列 */
+  .locbar{display:flex;align-items:center;gap:10px;padding:12px 14px}
+  .locbar > .i{color:var(--acc);width:24px;height:24px}
+  .locbar .lb-main{flex:1;min-width:0}
+  .locbar .lb-name{font-weight:700;font-size:17px;line-height:1.3}
+  .locbar .lb-name .m{font-size:14px}
+  .locbar .lb-meta{font-size:13px;color:var(--steel);overflow-wrap:anywhere}
+  .locbar .chg{background:transparent;color:var(--acc);border:1.5px solid var(--acc);border-radius:999px;padding:6px 14px;font-weight:700;white-space:nowrap}
+  #spotNowBar{scroll-margin-top:64px}
+  /* 天色時鐘 */
+  .dial{width:100%;max-width:400px;display:block;margin:4px auto 0}
+  .dial .dl{font:700 12px "JetBrains Mono",ui-monospace,monospace;fill:var(--ink);text-anchor:middle}
+  .dial .ol{font:700 11.5px "JetBrains Mono",ui-monospace,monospace;fill:var(--steel)}
+  .dial .c1{font-size:12.5px;font-weight:500;fill:var(--steel);text-anchor:middle}
+  .dial .c2{font:800 40px "JetBrains Mono",ui-monospace,monospace;fill:var(--ink);text-anchor:middle;letter-spacing:-1px}
+  .dial .c3{font:700 13.5px "JetBrains Mono",ui-monospace,monospace;fill:var(--acc);text-anchor:middle}
+  .leg{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;color:var(--steel);margin-top:2px}
+  .leg i{display:inline-block;width:14px;height:6px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  .grid4{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+  .cell{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--paper)}
+  .cell .k{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--steel);font-weight:600}
+  .cell .k .sw{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+  .cell .big{font-size:30px;font-weight:800;line-height:1.1;margin-top:4px}
+  .cell .to{font-size:13px;color:var(--steel)}
+  .sc-chip{display:inline-flex;align-items:center;gap:4px;border:1.5px solid var(--line);border-radius:999px;padding:2px 10px;font-size:13px;font-weight:600;margin-top:6px;background:var(--surface);white-space:nowrap}
+  .sc-chip b{font-size:14px}
+  .sc-chip.na{color:var(--steel);border-style:dashed}
+  /* 大景機率：半圓儀表 */
+  .gg{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:8px;margin-top:8px}
+  .gbox{text-align:center;border:1px solid var(--line);border-radius:12px;padding:8px 6px 10px;background:var(--paper)}
+  .gbox .gl{display:flex;justify-content:center;align-items:center;gap:6px;font-weight:700;font-size:15px}
+  .gauge{width:100%;max-width:160px;display:block;margin:2px auto -6px}
+  .gauge .gt{font:700 9.5px "JetBrains Mono",ui-monospace,monospace;fill:var(--steel);text-anchor:middle}
+  .gauge .gq{font:800 26px "JetBrains Mono",ui-monospace,monospace;fill:var(--steel);text-anchor:middle}
+  .gbox .sc{font-size:34px;font-weight:800;line-height:1}
+  .gbox .st{font-size:13px;font-weight:700}
+  .gbox .at{font-size:13px;color:var(--steel)}
+  .gbox .why{font-size:13px;color:var(--steel);margin:4px 2px 0;text-align:left}
+  .alt{display:flex;gap:12px;align-items:center;margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--paper)}
+  .alt svg{width:92px;height:140px;flex:0 0 auto}
+  .alt .ax2{font:700 10px "JetBrains Mono",ui-monospace,monospace;fill:var(--steel)}
+  .alt p{margin:0;font-size:14px}
+  .alt .row2{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--steel)}
+  .alt .row2 b{color:var(--ink);font-size:15px}
+  .sub2{font-size:14px;font-weight:700;color:var(--steel);margin:14px 0 0;display:flex;align-items:center;gap:6px}
+  .sub2 .i{width:18px;height:18px}
+  .refresh-row{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  /* 因子刻度條（40／75 兩條刻度＝App 的分數門檻） */
+  .factor-row{margin-bottom:8px}
+  .factor-label{color:var(--steel)}
+  .factor-label b{color:var(--ink);font-size:14px}
+  .factor-bar{position:relative;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+  .factor-bar > i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--acc)}
+  .factor-bar > s{position:absolute;top:0;bottom:0;width:1.5px;background:var(--surface)}
+  .factor-bar.na{background:repeating-linear-gradient(135deg,var(--line) 0 4px,transparent 4px 8px)}
+  .unknown-note{margin:8px 0 0;padding:8px 10px;border-radius:8px;border:1px dashed var(--line);font-size:14px;color:var(--ink)}
+  /* 日月軌跡 */
+  .track{width:100%;display:block;margin-top:8px;border-radius:10px}
+  .track .ax{font:700 10px "JetBrains Mono",ui-monospace,monospace;fill:var(--steel)}
+  .track .tl{font:700 11px "JetBrains Mono",ui-monospace,monospace;fill:var(--track-label)}
+  .facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+  .facts div{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--paper)}
+  .facts span{display:block;font-size:13px;color:var(--steel)}
+  .facts b{font-size:17px}
+  /* 三日預測：表頭＋可展開列 */
+  .fc-head,.fc-item summary.fc-row,.fc-item > .fc-row{display:grid;grid-template-columns:minmax(84px,1.2fr) repeat(var(--fc-cols,3),minmax(0,1fr));align-items:center;gap:6px}
+  .fc-head{font-size:13px;color:var(--steel);padding:2px 0 6px;border-bottom:1px solid var(--line)}
+  .fc-day{width:auto}
+  .fc-day small{display:block;color:var(--steel);font-weight:500;font-size:13px}
+  .fc-cell{text-align:left}
+  .fc-cell .sc-chip{margin:0}
+  .fc-badge{background:var(--surface);border:1.5px solid}
+  .fc-badge.mid{color:inherit}
+  /* 主題切換（自訂選項） */
+  .seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .seg button{background:var(--snow);color:var(--ink);border:1.5px solid var(--line);font-weight:600}
+  .seg button[aria-pressed="true"]{background:var(--acc);color:var(--btn-fg);border-color:var(--acc)}
+  /* 夜拍模式：地圖圖磚轉暗紅，避免整片亮白地圖破壞暗適應 */
+  [data-theme="night"] .leaflet-tile-pane{filter:grayscale(1) brightness(.55) sepia(1) hue-rotate(-50deg) saturate(4)}
   /* 桌機：內容撐到 1180px、卡片排兩欄（多欄而不是把一段文字拉寬，單行維持 ≤約 35 字） */
   @media (min-width:960px){
     main{max-width:1180px;padding:20px 24px}
@@ -144,6 +290,7 @@
     section[data-view="about"].active,section[data-view="settings"].active{column-count:2;column-gap:20px}
     section[data-view="about"].active > .card,section[data-view="settings"].active > .card{break-inside:avoid;-webkit-column-break-inside:avoid;display:inline-block;width:100%;vertical-align:top}
     .hero .cta{width:auto;padding:0 32px}
+    #spotNowBar{grid-column:1/-1}  /* 地點列橫跨兩欄，天色時鐘與大景機率並排 */
     #mapView{height:70vh}
   }
 </style>
@@ -181,14 +328,14 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.18</span>
+  <span class="ver">v0.19</span>
 </header>
 
 <nav id="nav">
-  <a href="#dashboard" data-view="dashboard">🏠 首頁</a>
-  <a href="#map" data-view="map">🗺️ 地圖探索</a>
-  <a href="#about" data-view="about">📖 預測說明</a>
-  <a href="#settings" data-view="settings">⚙️ 自訂選項</a>
+  <a href="#dashboard" data-view="dashboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></svg>首頁</a>
+  <a href="#map" data-view="map"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18.5l-3 -1.5l-6 3v-13l6 -3l6 3l6 -3v7.5" /> <path d="M9 4v13" /> <path d="M15 7v5.5" /> <path d="M21.121 20.121a3 3 0 1 0 -4.242 0c.418 .419 1.125 1.045 2.121 1.879c1.051 -.89 1.759 -1.516 2.121 -1.879z" /> <path d="M19 18v.01" /></svg>地圖探索</a>
+  <a href="#about" data-view="about"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 9h.01" /> <path d="M11 12h1v4h1" /></svg>預測說明</a>
+  <a href="#settings" data-view="settings"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M4 6l8 0" /> <path d="M16 6l4 0" /> <path d="M8 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M4 12l2 0" /> <path d="M10 12l10 0" /> <path d="M17 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M4 18l11 0" /> <path d="M19 18l1 0" /></svg>自訂選項</a>
 </nav>
 
 <main id="mainEl" class="no-loc">
@@ -229,28 +376,53 @@
     <div class="card only-no-loc">
       <h2>選好地點後會看到</h2>
       <ul class="muted" style="padding-left:20px;margin:0 0 10px">
-        <li>下一個黃金／藍調時刻倒數，與該時刻的預測分數</li>
+        <li>天色時鐘：今天的藍調／黃金時刻、倒數與各時段的預測分數</li>
         <li>現在此刻的火燒雲、雲海、觀星分數與因子拆解</li>
         <li>未來三日每天的預測</li>
       </ul>
       <button type="button" class="secondary" id="btnGoPick">📍 去選一個景點</button>
     </div>
 
-    <div class="card needs-loc" id="countdownCard">
-      <p class="spot-now" id="spotNowLine"></p>
-      <h2 id="countdownLabel">下一個光影時刻</h2>
-      <div class="countdown" id="countdownTime">--:--:--</div>
-      <div class="countdown-label" id="countdownEvent">請先定位</div>
-      <div id="blueHourScoreLine" class="muted" style="margin-top:8px"></div>
+    <div class="card locbar needs-loc" id="spotNowBar">
+      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /> <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" /></svg>
+      <div class="lb-main">
+        <div class="lb-name" id="spotNowName"></div>
+        <div class="lb-meta m" id="spotNowMeta"></div>
+      </div>
+      <button type="button" class="chg" id="btnChangeLoc">換地點</button>
     </div>
 
-    <div class="card needs-loc">
-      <h2>機率預測（現在此刻）</h2>
-      <p class="note" style="margin-top:-4px">以下是「現在」這一刻的即時天候評分，不是等等／今晚才會發生的目標時刻——對得上「今日推薦」分數的預測請看「下一個光影時刻」卡片。</p>
-      <div class="row">
+    <!-- 2026-10-19 v0.19：倒數卡改成「天色時鐘」——24 小時錶盤（午夜在下、正午在上），色環＝太陽高度角換算的天空色，
+         外圈弧＝黃金／藍調時段，指針＝下一個光影時刻；下方四格＝四個時段與各自的預測分數。純 SunCalc，不需網路。 -->
+    <div class="card needs-loc" id="countdownCard">
+      <h2 class="h-ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 12l3 2" /> <path d="M12 7v5" /></svg><span id="countdownLabel">天色時鐘</span><span class="h-r m" id="dialDay"></span></h2>
+      <div id="skyDial"></div>
+      <div class="leg" aria-hidden="true"><span><i style="background:var(--blue-band)"></i>藍調時刻</span><span><i style="background:var(--gold-band)"></i>黃金時刻</span><span><i id="legSky"></i>天空色＝太陽高度</span></div>
+      <div class="grid4" id="dialCells"></div>
+      <p class="sr-only" aria-live="off"><span id="countdownEvent">請先定位</span> <span id="countdownTime">--:--:--</span></p>
+      <p class="note" style="margin:8px 0 0">藍調時刻＝太陽在地平線下 4°～6°、黃金時刻＝地平線下 4° 到地平線上 6°（攝影慣用定義）。<a class="info-link" href="#about:blue">怎麼定義的</a></p>
+    </div>
+
+    <div class="card needs-loc" id="targetCard">
+      <h2 class="h-ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21l6 -5l6 5" /> <path d="M12 13v8" /> <path d="M3.294 13.678l.166 .281c.52 .88 1.624 1.265 2.605 .91l14.242 -5.165a1.023 1.023 0 0 0 .565 -1.456l-2.62 -4.705a1.087 1.087 0 0 0 -1.447 -.42l-.056 .032l-12.694 7.618c-1.02 .613 -1.357 1.897 -.76 2.905z" /> <path d="M14 5l3 5.5" /></svg>大景機率<span class="h-r">大景門檻 <b class="m">75</b></span></h2>
+      <p class="note" style="margin:4px 0 0">每個現象「下一次」真正發生時刻的預測分數，跟「今日推薦」同一套算法。</p>
+      <div id="blueHourScoreLine" style="margin-top:8px"><span class="muted">抓取氣象預測後顯示</span></div>
+      <div class="row refresh-row">
         <button id="btnWeather" disabled>重新抓取氣象預測</button>
         <span class="muted" id="weatherStatus"></span>
       </div>
+    </div>
+
+    <div class="card needs-loc" id="trackCard">
+      <h2 class="h-ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.828 14.828a4 4 0 1 0 -5.656 -5.656a4 4 0 0 0 5.656 5.656z" /> <path d="M6.343 17.657l-1.414 1.414" /> <path d="M6.343 6.343l-1.414 -1.414" /> <path d="M17.657 6.343l1.414 -1.414" /> <path d="M17.657 17.657l1.414 1.414" /> <path d="M4 12h-2" /> <path d="M12 4v-2" /> <path d="M20 12h2" /> <path d="M12 20v2" /></svg>日月軌跡<span class="h-r m" id="trackDay"></span></h2>
+      <div id="sunTrack"></div>
+      <div class="leg" style="margin-top:6px" aria-hidden="true"><span><i style="background:var(--sun)"></i>太陽高度角</span><span><i style="background:repeating-linear-gradient(90deg,var(--steel) 0 4px,transparent 4px 7px)"></i>月亮高度角</span></div>
+      <div class="facts" id="trackFacts"></div>
+    </div>
+
+    <div class="card needs-loc">
+      <h2 class="h-ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M16.924 11.132a5 5 0 1 0 -4.056 5.792" /> <path d="M3 12a9 9 0 1 0 9 -9" /></svg>機率預測（現在此刻）</h2>
+      <p class="note" style="margin-top:-4px">以下是「現在」這一刻的即時天候評分，不是等等／今晚才會發生的目標時刻——對得上「今日推薦」分數的預測請看上方「大景機率」卡。</p>
       <div id="scoreCards"></div>
     </div>
 
@@ -260,8 +432,9 @@
     </div>
 
     <div class="card needs-loc">
-      <h2>未來三日預測（各現象抓自己合理的時刻）</h2>
-      <div id="forecast3" class="muted">先抓取上方機率預測後才會一起算出來</div>
+      <h2 class="h-ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /> <path d="M16 3v4" /> <path d="M8 3v4" /> <path d="M4 11h16" /> <path d="M8 14v4" /> <path d="M12 14v4" /> <path d="M16 14v4" /></svg>未來三日<span class="h-r">各現象抓自己合理的時刻</span></h2>
+      <div id="forecast3"><span class="muted">先抓取上方機率預測後才會一起算出來</span></div>
+      <p class="note" style="margin:8px 0 0">分數是方向性估計，不是保證；超過 75 才算大景預警。點一列看因子拆解。</p>
     </div>
   </section>
 
@@ -293,9 +466,9 @@
       <h2>☁️ 雲海指數＋雲海高度</h2>
       <p class="muted">雲海需要「逆溫」——高空比地面暖，把水氣蓋在低處變成一層雲：</p>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
-        <li><b>逆溫強度 35%</b>：比較地面氣溫與925hPa(約海拔700-800m處)氣溫，高空越暖分數越高——這是逆溫存不存在的主訊號</li>
-        <li><b>逆溫層厚度 15%</b>：再往上比較925hPa跟850hPa(約海拔1500m)，如果溫度持平或續暖代表逆溫「蓋子」夠厚、雲海比較穩定不易破碎；如果快速轉冷代表逆溫層很薄，雲海容易一下就散了（2026-08-24新增，之前只看單一高度）</li>
-        <li><b>高空濕度 25%</b>：夠濕才有雲可以形成，≥90%最佳(2026-08-27校準，原85%)</li>
+        <li><b>逆溫強度 35%</b>：比較地面氣溫與「地面上方第一個氣壓層」的氣溫，高空越暖分數越高——這是逆溫存不存在的主訊號。平地景點是925hPa(約海拔800m)；高山景點的925hPa在地底下，改用上方的850／700／600hPa（用Open-Meteo給的氣壓層實際高度判斷，要比地面高100m以上）。缺資料就顯示「無法判斷」、不給分數（2026-10-19修正：之前武嶺這類高山拿地底下的925hPa外插值來比，算出假的強逆溫，雲海分數偏高）</li>
+        <li><b>逆溫層厚度 15%</b>：再往上一層比較(平地＝925hPa→850hPa，約海拔1500m)，如果溫度持平或續暖代表逆溫「蓋子」夠厚、雲海比較穩定不易破碎；如果快速轉冷代表逆溫層很薄，雲海容易一下就散了（2026-08-24新增，之前只看單一高度）</li>
+        <li><b>高空濕度 25%</b>：用同一個氣壓層的濕度，夠濕才有雲可以形成，≥90%最佳(2026-08-27校準，原85%)</li>
         <li><b>地表風速 25%</b>：≤3m/s最佳，風太大雲海會被吹散(2026-08-27校準，原2m/s)</li>
       </ul>
       <p class="muted"><b>雲海高度</b>是額外估算：用氣象學經典的「凝結高度」公式——<code>雲底高度(公尺) ≈ 125 × (地面氣溫 − 露點溫度)</code>（Espy's equation）反推雲層大概在哪個海拔，藉此判斷你所在的觀景點是在雲層之上還是之下。這是理論估算不是實測，僅供參考。</p>
@@ -304,11 +477,21 @@
       <h2>✨ 觀星指數</h2>
       <p class="muted">總雲量(55%，越少越好)＋月相(25%，2026-08-27新增——滿月會讓觀星體驗大幅變差，接近新月才最佳)＋濕度代表的霾害程度(20%)。這個指數仍<b>不考慮市區人造光害</b>，只算了月光，市區觀星實際感受會比分數差很多。</p>
     </div>
+    <div class="card" id="section-blue">
+      <h2>💙 藍調時刻與黃金時刻怎麼定義</h2>
+      <ul class="muted" style="padding-left:18px;margin:6px 0">
+        <li><b>藍調時刻</b>：太陽在地平線下 4°～6°（攝影慣用定義）。天空是飽和的深藍、城市燈光剛亮，亮度跟天色接近；日出前、日落後各一段，台灣每段大約只有 10 分鐘。</li>
+        <li><b>黃金時刻</b>：太陽在地平線下 4° 到地平線上 6°，清晨緊接在藍調之後、傍晚緊接在藍調之前。</li>
+        <li><b>觀星／琉璃光</b>看的是「真正入夜」：太陽在地平線下 18°（天文昏影結束）之後。</li>
+        <li>2026-10-19 之前，App 把太陽在地平線下 12°～18°（天文曙暮光）當成藍調，比攝影師說的藍調早約 40 分鐘、天色幾乎全黑，已改正；黃金時刻也跟著改成從 −4° 起算，兩段首尾相接。</li>
+        <li><b>藍調指數</b>：總雲量 50%（越少越好，70% 以上歸零）＋能見度 30%＋濕度 20%。時刻由 SunCalc 依經緯度計算，不需要網路。</li>
+      </ul>
+    </div>
     <div class="card" id="section-liuli">
       <h2>💎 琉璃光指數</h2>
       <p class="muted">谷地被逆溫鎖住的霧，把下方城鎮各種燈光（路燈鈉黃、LED白光、招牌霓虹）柔化混色成朦朧七彩光暈的夜間景象(南投金龍山最著名)。跟雲海是同一種「逆溫困住谷地水氣」機制，差別是雲海白天看日光反射、琉璃光夜間看谷地燈光透霧：</p>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
-        <li><b>逆溫強度</b>：比較地面氣溫與925hPa氣溫，判斷谷地有沒有被蓋住(邏輯同雲海)</li>
+        <li><b>逆溫強度</b>：比較地面氣溫與地面上方第一個氣壓層的氣溫，判斷谷地有沒有被蓋住(挑層邏輯同雲海，缺資料顯示「無法判斷」)</li>
         <li><b>能見度</b>：跟雲海不同，這裡要「剛剛好」——500~3000m最佳，太清澈看不出燈光暈染的朦朧感，太濃(&lt;100m)燈光會被完全擋住看不到</li>
         <li><b>地表風速</b>：≤2m/s最佳，風大會把霧吹散打亂暈染效果</li>
       </ul>
@@ -319,7 +502,7 @@
       <ul class="muted" style="padding-left:18px;margin:6px 0">
         <li>預測資料來自 <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> 免費公開API（Weather data by Open-Meteo.com，資料授權 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>）。</li>
         <li>首頁另外會顯示<a href="https://opendata.cwa.gov.tw" target="_blank">中央氣象署</a>最近測站的即時觀測數據當交叉對照(距離15公里內才會顯示，太遠的測站不具參考性)——這是實測值不是預測，跟我們的分數不一定完全吻合。</li>
-        <li>每張分數卡下方的「🎯模型信心」是額外算的：拿約40組不同氣象模式的預測結果互相比較，落差小代表模式間有共識(信心高)，落差大代表這個時段天氣還很不確定(信心低)，<b>不是分數本身的準確度保證</b>。</li>
+        <li>每張分數卡下方的「🎯模型信心」是額外算的：拿約40組不同氣象模式的預測結果互相比較，落差小代表模式間有共識(信心高)，落差大代表這個時段天氣還很不確定(信心低)，<b>不是分數本身的準確度保證</b>。2026-10-19 起：模式成員缺資料就不列入計算（實測 icon_seamless 的多組模式目前不提供雲量、能見度與高空氣壓層），能用的成員不到一半就顯示「模型信心：無法計算」——之前缺資料被當成滿分，信心區間不可信。</li>
         <li>上面幾個公式的「權重」是依照氣象學方向性知識自己設計的估計值，<b>不是經過氣象單位驗證的官方公式</b>，之後會依實際觀測回饋持續校準。</li>
         <li>所有分數都是取目標時刻前後1小時內的資料平均，不是只看單一整點，減少單一小時雜訊誤判的機會。</li>
         <li>💎琉璃光指數只在資料庫明確標記過「谷地下方有城鎮燈光」的地點顯示(目前只有金龍山)，不像雲海/觀星可以套用在任何地點當附加參考。</li>
@@ -353,9 +536,13 @@
 
     <div class="card">
       <h2>🎨 顯示偏好</h2>
-      <label class="row" style="cursor:pointer">
-        <input type="checkbox" id="darkModeToggle" style="width:auto"> 深色模式
-      </label>
+      <div class="seg" role="group" aria-label="畫面主題">
+        <button type="button" data-theme-opt="auto" aria-pressed="false">自動（跟系統）</button>
+        <button type="button" data-theme-opt="light" aria-pressed="false">淺色</button>
+        <button type="button" data-theme-opt="dark" aria-pressed="false">深色</button>
+        <button type="button" data-theme-opt="night" aria-pressed="false">夜拍模式</button>
+      </div>
+      <p class="note" style="margin:8px 0 0">夜拍模式：整個畫面改成暗紅單色，拍星空／藍調時在暗處看手機不會破壞眼睛的暗適應；分數顏色改用紅色深淺表示（越亮分數越高）。</p>
     </div>
   </section>
 </main>
@@ -395,19 +582,25 @@
   let leafletMap = null;
   let mapLocations = [];
 
+  // 地圖圖標用實色（Leaflet 的 SVG 屬性吃不到 CSS 變數）；無法判斷＝灰
   function scoreColor(score) {
+    if (score == null) return '#9AA8A4';
     if (score > 75) return '#A64B38';
     if (score > 40) return '#DE9A45';
     return '#3F6B4F';
   }
-  // 文字用色：中段的金色在白底對比只有 2.4，文字改用深一階的金棕（底色/圓點仍用 scoreColor）
+  // 2026-10-19 v0.19：狀態色改用主題 token（淺／深／夜拍各一組，對比 ≥4.5）。
+  // 級距沿用 App 門檻 ≤40／41–75／>75（大景預警）；41–75 再分黃、橘兩格只是視覺分段，沒有新門檻。
+  function statusOf(score) { return score > 75 ? 3 : score > 60 ? 2 : score > 40 ? 1 : 0; }
+  const STATUS_WORD = ['機會低', '有機會', '有機會', '大景預警'];
   function scoreTextColor(score) {
-    return score > 40 && score <= 75 ? '#8A5A1C' : scoreColor(score);
+    return score == null ? 'var(--steel)' : `var(--t${statusOf(score)})`;
   }
-  // 分數膠囊：金底配深色字、紅/綠底配白字
+  // 分數膠囊：外框＝狀態填色、字＝狀態文字色；分數算不出來（null）用虛線灰框
   function badge(score, text) {
-    const mid = score > 40 && score <= 75;
-    return `<span class="fc-badge${mid ? ' mid' : ''}" style="background:${scoreColor(score)}">${text}</span>`;
+    if (score == null) return `<span class="sc-chip na">${text}</span>`;
+    const st = statusOf(score);
+    return `<span class="sc-chip" style="color:var(--t${st});border-color:var(--s${st})">${text}</span>`;
   }
 
   // Leaflet 只有地圖分頁用得到，2026-10-12 起改成第一次開地圖才載（首頁省 ~150KB）
@@ -444,6 +637,7 @@
 
   function seaLine(h, groundElevationM) {
     const sea = window.WeatherMath.seaOfCloudsScore(h);
+    if (sea.score == null) return `☁️ 雲海：<b>無法判斷</b>（${sea.reason}）`;
     const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
     const cmp = cb.amslM <= groundElevationM ? '在雲層之上✅' : '可能在雲層之下';
     return `☁️ 雲海：<b style="color:${scoreTextColor(sea.score)}">${sea.score}分</b>（雲海高度估計約${cb.amslM}m，機位${cmp}）`;
@@ -458,6 +652,7 @@
   }
   function liuliLine(h) {
     const liuli = window.WeatherMath.liuliGuangScore(h);
+    if (liuli.score == null) return `💎 琉璃光：<b>無法判斷</b>（${liuli.reason}）`;
     return `💎 琉璃光：<b style="color:${scoreTextColor(liuli.score)}">${liuli.score}分</b>（夜間谷地起霧+燈光暈染，需親臨現場確認）`;
   }
 
@@ -510,7 +705,8 @@
         if (hasGlow) scores.push(window.WeatherMath.fieryGlowScore(h).score);
         if (hasStars) scores.push(window.WeatherMath.starsScore(h).score);
         if (hasLiuli) scores.push(window.WeatherMath.liuliGuangScore(h).score);
-        color = scoreColor(Math.max(...scores));
+        const finite = scores.filter(Number.isFinite); // 無法判斷（null）的不算進顏色
+        color = finite.length ? scoreColor(Math.max(...finite)) : scoreColor(null);
 
         popupBody = primaryLines.join('<br>') +
           (secondaryLines.length
@@ -582,7 +778,7 @@
   let resultOriginId = 'locCard';
   function showResultForSpot(originId) {
     resultOriginId = originId || 'locCard';
-    const card = document.getElementById('countdownCard');
+    const card = document.getElementById('spotNowBar');
     if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
     if (!resultHistoryPushed && (location.hash === '' || location.hash === '#dashboard')) {
       history.pushState({ lcResult: true }, '', location.href);
@@ -606,8 +802,12 @@
     coords = { lat, lng };
     document.getElementById('mainEl').classList.remove('no-loc');
     document.getElementById('locStatus').textContent = `${source}：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    const spotNow = document.getElementById('spotNowLine');
-    if (spotNow) spotNow.textContent = `📍 目前查看：${source}（${lat.toFixed(4)}, ${lng.toFixed(4)}）`;
+    // 2026-10-19 v0.19：地點列（名稱＋海拔＋座標；抓完預報再補「預報 時間」）
+    const elev = selectedSpot && Number.isFinite(selectedSpot.min_elevation) ? ` <span class="m">${selectedSpot.min_elevation} m</span>` : '';
+    document.getElementById('spotNowName').innerHTML = `${esc(source)}${elev}`;
+    document.getElementById('spotNowMeta').textContent = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lng).toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`;
+    lastWeather = null;
+    dialDrawnKey = '';
     document.getElementById('btnWeather').disabled = false;
     updateCountdown();
     // 記住這次的地點，下次開啟App直接帶入不用重新選——GPS座標也一併記，
@@ -750,7 +950,8 @@
   // ---- 今日推薦：每天(同一支瀏覽器)算一次全部景點的分數，挑出「大景預警」(score>75)的地點 ----
   // 沒有後端排程，快取存在瀏覽器localStorage，靠日期字串比對做到「一天一次」，
   // 不同使用者各自的瀏覽器各跑各的，不是全站共用同一份結果。
-  const DAILY_PICKS_KEY = 'lc_daily_picks_v1';
+  // 2026-10-19 v0.19：v1→v2，舊快取的雲海分數含高山假逆溫、藍調時刻是舊定義，當天直接重算
+  const DAILY_PICKS_KEY = 'lc_daily_picks_v2';
   const KIND_META = {
     glow: { icon: '🔥', label: '火燒雲', scoreFn: window.WeatherMath.fieryGlowScore },
     sea: { icon: '☁️', label: '雲海', scoreFn: window.WeatherMath.seaOfCloudsScore },
@@ -795,7 +996,7 @@
     if (kind === 'blue') {
       candidates = [today.dawnBlue.start, today.duskBlue.start, tomorrow.dawnBlue.start, tomorrow.duskBlue.start];
     } else if (kind === 'stars' || kind === 'liuli') {
-      candidates = [today.duskBlue.end, tomorrow.duskBlue.end];
+      candidates = [today.night, tomorrow.night]; // 天文昏影結束（−18°），不再借藍調的結束時間
     } else {
       const field = { glow: 'duskGolden', sea: 'dawnGolden' }[kind];
       candidates = [today[field].start, tomorrow[field].start];
@@ -817,6 +1018,7 @@
       if (Math.abs(closest - target) > 3 * 3600 * 1000) return; // 超出預報範圍就跳過這個現象
       const h = window.WeatherMath.hourAtWindow(data.hourly, target);
       const result = KIND_META[kind].scoreFn(h);
+      if (result.score == null) return; // 無法判斷（例：缺高空資料）不列入推薦
       if (!best || result.score > best.score) best = { kind, score: result.score, alert: result.alert };
     });
     if (!best) return null;
@@ -900,8 +1102,285 @@
   document.getElementById('btnGoPick').addEventListener('click', () => {
     document.getElementById('locCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+  document.getElementById('btnChangeLoc').addEventListener('click', () => {
+    document.getElementById('locCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
-  // ---- 黃金/藍調時刻倒數 ----
+  // ---- 2026-10-19 v0.19 天色時鐘／大景機率儀表／日月軌跡 ----
+  // 線條圖示：Tabler Icons（MIT，vendor/tabler-icons.LICENSE.txt），只內嵌用到的幾個
+  const TI = {"flame": "<path d=\"M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5a6 6 0 1 0 12 0c0 -1.532 -1.056 -3.94 -2 -5c-1.786 3 -2.791 3 -4 2z\" />", "cloud": "<path d=\"M6.657 18c-2.572 0 -4.657 -2.007 -4.657 -4.483c0 -2.475 2.085 -4.482 4.657 -4.482c.393 -1.762 1.794 -3.2 3.675 -3.773c1.88 -.572 3.956 -.193 5.444 1c1.488 1.19 2.162 3.007 1.77 4.769h.99c1.913 0 3.464 1.56 3.464 3.486c0 1.927 -1.551 3.487 -3.465 3.487h-11.878\" />", "moon-stars": "<path d=\"M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z\" /> <path d=\"M17 4a2 2 0 0 0 2 2a2 2 0 0 0 -2 2a2 2 0 0 0 -2 -2a2 2 0 0 0 2 -2\" /> <path d=\"M19 11h2m-1 -1v2\" />", "diamond": "<path d=\"M6 5h12l3 5l-8.5 9.5a.7 .7 0 0 1 -1 0l-8.5 -9.5l3 -5\" /> <path d=\"M10 12l-2 -2.2l.6 -1\" />", "sun-moon": "<path d=\"M9.173 14.83a4 4 0 1 1 5.657 -5.657\" /> <path d=\"M11.294 12.707l.174 .247a7.5 7.5 0 0 0 8.845 2.492a9 9 0 0 1 -14.671 2.914\" /> <path d=\"M3 12h1\" /> <path d=\"M12 3v1\" /> <path d=\"M5.6 5.6l.7 .7\" /> <path d=\"M3 21l18 -18\" />"};
+  const ic = (name, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TI[name] || ''}</svg>`;
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const validDate = (d) => d instanceof Date && !Number.isNaN(d.getTime());
+  const hhmm = (d) => (validDate(d) ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '--:--');
+  const WEEK = '日一二三四五六';
+  const mdw = (d) => `${d.getMonth() + 1}/${d.getDate()}（${WEEK[d.getDay()]}）`;
+  const md = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const fmtNum = (v, digits, unit) => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(digits) + unit : null);
+  const dayStartOf = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const isNightTheme = () => document.documentElement.getAttribute('data-theme') === 'night';
+
+  // 天空色：太陽高度角 → 色階（視覺對照，不是資料）。夜拍模式轉成紅色明度
+  const SKY_STOPS = [[-90, '#070A18'], [-18, '#0B1026'], [-12, '#1C2B5E'], [-6, '#34529A'], [-2, '#8C6FA8'], [0, '#E9876A'], [4, '#F4AE5E'], [8, '#F6D99A'], [15, '#A9D3EC'], [35, '#73B6E3'], [90, '#4E9CD8']];
+  const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const rgbHex = (c) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+  function skyColor(alt, night) {
+    let c = SKY_STOPS[SKY_STOPS.length - 1][1];
+    for (let i = 0; i < SKY_STOPS.length - 1; i++) {
+      const [a0, c0] = SKY_STOPS[i], [a1, c1] = SKY_STOPS[i + 1];
+      if (alt >= a0 && alt <= a1) {
+        const t = (alt - a0) / (a1 - a0), x = hexRgb(c0), y = hexRgb(c1);
+        c = rgbHex(x.map((v, k) => v + (y[k] - v) * t));
+        break;
+      }
+    }
+    if (!night) return c;
+    const [r, g, b] = hexRgb(c);
+    const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return rgbHex([L * 1.05 + 10, L * 0.16, L * 0.12]);
+  }
+  function altSeries(day0, lat, lng, moon) {
+    const out = [];
+    for (let i = 0; i <= 144; i++) {
+      const d = new Date(day0.getTime() + i * 600000);
+      const p = moon ? window.SunCalc.getMoonPosition(d, lat, lng) : window.SunCalc.getPosition(d, lat, lng);
+      out.push(p.altitude * 180 / Math.PI);
+    }
+    return out;
+  }
+
+  let lastWeather = null;     // { data, groundElevationM }：給錶盤四格／日月軌跡的分數用
+  let dialDrawnKey = '';
+
+  // 24 小時錶盤：午夜在下、正午在上、順時針
+  function dialSvg(day0, t, ev) {
+    const cx = 170, cy = 170, R = 118, RW = 26;
+    const minOf = (d) => (d - day0) / 60000;
+    const pt = (r, min) => { const f = min / 1440 * 2 * Math.PI; return [cx - r * Math.sin(f), cy + r * Math.cos(f)]; };
+    const arc = (r, m0, m1) => {
+      const [x0, y0] = pt(r, m0), [x1, y1] = pt(r, m1);
+      return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 ${(m1 - m0) > 720 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+    };
+    const night = isNightTheme();
+    const alts = altSeries(day0, coords.lat, coords.lng, false);
+    const label = `${mdw(day0)} 天色時鐘：晨間藍調 ${hhmm(t.dawnBlue.start)}、晨間黃金 ${hhmm(t.dawnGolden.start)}、傍晚黃金 ${hhmm(t.duskGolden.start)}、傍晚藍調 ${hhmm(t.duskBlue.start)}`;
+    let s = `<svg class="dial" viewBox="-30 30 400 280" role="img" aria-label="${label}">`;
+    for (let i = 0; i < 144; i++) {
+      s += `<path d="${arc(R, i * 10, i * 10 + 10.6)}" stroke="${skyColor((alts[i] + alts[i + 1]) / 2, night)}" stroke-width="${RW}" fill="none"/>`;
+    }
+    s += `<circle cx="${cx}" cy="${cy}" r="${R + RW / 2 + 0.5}" fill="none" style="stroke:var(--steel)" stroke-opacity=".5"/><circle cx="${cx}" cy="${cy}" r="${R - RW / 2 - 0.5}" fill="none" style="stroke:var(--steel)" stroke-opacity=".5"/>`;
+    const band = (w, v) => (validDate(w.start) && validDate(w.end)
+      ? `<path d="${arc(R + 22, minOf(w.start), minOf(w.end))}" style="stroke:var(${v})" stroke-width="7" stroke-linecap="round" fill="none"/>` : '');
+    s += band(t.dawnBlue, '--blue-band') + band(t.duskBlue, '--blue-band') + band(t.dawnGolden, '--gold-band') + band(t.duskGolden, '--gold-band');
+    for (let h = 0; h < 24; h++) {
+      const major = h % 6 === 0;
+      const [x0, y0] = pt(R - RW / 2 - 3, h * 60), [x1, y1] = pt(R - RW / 2 - (major ? 13 : 8), h * 60);
+      s += `<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" style="stroke:var(--steel)" stroke-width="${major ? 2 : 1.2}"/>`;
+      if (major) { const [lx, ly] = pt(R - RW / 2 - 25, h * 60); s += `<text x="${lx.toFixed(1)}" y="${(ly + 4.5).toFixed(1)}" class="dl">${pad2(h)}</text>`; }
+    }
+    [t.sunrise, t.sunset].filter(validDate).forEach((d) => {
+      const [x, y] = pt(R, minOf(d));
+      s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" style="fill:var(--surface);stroke:var(--ink)" stroke-width="1.6"/>`;
+    });
+    const lab = (d, dy) => {
+      if (!validDate(d)) return '';
+      const [x, y] = pt(R + 30, minOf(d));
+      return `<text x="${x.toFixed(1)}" y="${(y + 4 + dy).toFixed(1)}" class="ol" text-anchor="${x < cx ? 'end' : 'start'}">${hhmm(d)}</text>`;
+    };
+    s += lab(t.dawnBlue.start, 6) + lab(t.dawnGolden.end, -4) + lab(t.duskGolden.start, -4) + lab(t.duskBlue.end, 6);
+    if (ev && validDate(ev.t)) {
+      const nm = minOf(ev.t);
+      const [nx, ny] = pt(R + 6, nm), [bx, by] = pt(78, nm);
+      s += `<line x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" style="stroke:var(--acc)" stroke-width="3" stroke-linecap="round"/><circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="4" style="fill:var(--acc)"/>`;
+    }
+    s += `<text x="${cx}" y="${cy - 30}" class="c1" id="dialNextKey">下一個・${ev ? ev.key : ''}</text>`;
+    s += `<text x="${cx}" y="${cy + 10}" class="c2">${ev ? hhmm(ev.t) : '--:--'}</text>`;
+    s += `<text x="${cx}" y="${cy + 36}" class="c3" id="dialCd">倒數 --:--:--</text>`;
+    return s + '</svg>';
+  }
+
+  // 某時刻的分數（沿用 scoreAtTarget）；回傳 chip HTML
+  const KIND_SHORT = { blue: '藍調', sea: '雲海', glow: '火燒雲', stars: '觀星', liuli: '琉璃光' };
+  function scoreChip(kind, at) {
+    const name = KIND_SHORT[kind];
+    if (!lastWeather) return `<span class="sc-chip na">${name} …</span>`;
+    const r = scoreAtTarget(lastWeather.data, at, KIND_META[kind].scoreFn);
+    if (!r) return `<span class="sc-chip na" title="超出預報範圍">${name} 超出預報</span>`;
+    if (r.result.score == null) return `<span class="sc-chip na" title="${esc(r.result.reason || '')}">${name} 無法判斷</span>`;
+    return badge(r.result.score, `${name} <b class="m">${r.result.score}</b>`);
+  }
+
+  function renderDialCells(t) {
+    const el = document.getElementById('dialCells');
+    const cells = [
+      { name: '晨間藍調', w: t.dawnBlue, v: '--blue-band', extra: '', kind: 'blue' },
+      { name: '晨間黃金', w: t.dawnGolden, v: '--gold-band', extra: `・日出 ${hhmm(t.sunrise)}`, kind: 'sea' },
+      { name: '傍晚黃金', w: t.duskGolden, v: '--gold-band', extra: `・日落 ${hhmm(t.sunset)}`, kind: 'glow' },
+      { name: '傍晚藍調', w: t.duskBlue, v: '--blue-band', extra: '', kind: 'blue' }
+    ];
+    el.innerHTML = cells.map((c) => `<div class="cell"><div class="k"><span class="sw" style="background:var(${c.v})"></span>${c.name}</div>
+      <div class="big m">${hhmm(c.w.start)}</div><div class="to m">→ ${hhmm(c.w.end)}${c.extra}</div>
+      ${validDate(c.w.start) ? scoreChip(c.kind, c.w.start) : '<span class="sc-chip na">今天沒有</span>'}</div>`).join('');
+  }
+
+  // 日月軌跡：高度角對時間，背景＝天空色
+  function renderTrack(day0, t) {
+    const host = document.getElementById('sunTrack');
+    if (!host) return;
+    const { lat, lng } = coords;
+    const night = isNightTheme();
+    const sun = altSeries(day0, lat, lng, false), moon = altSeries(day0, lat, lng, true);
+    const sunMax = Math.max(...sun);
+    const Wd = 358, H = 168, padL = 30, padR = 8, top = 10, bot = 26;
+    const yMin = -30, yMax = sunMax > 66 ? 90 : 70;
+    const x = (min) => padL + (Wd - padL - padR) * min / 1440;
+    const y = (a) => top + (H - top - bot) * (yMax - Math.max(yMin, Math.min(yMax, a))) / (yMax - yMin);
+    let s = `<svg class="track" viewBox="0 0 ${Wd} ${H}" role="img" aria-label="${md(day0)} 太陽與月亮高度角曲線，正午太陽高度 ${sunMax.toFixed(1)} 度">`;
+    for (let i = 0; i < 144; i++) s += `<rect x="${x(i * 10).toFixed(2)}" y="${top}" width="${(x(10) - x(0) + 0.6).toFixed(2)}" height="${H - top - bot}" fill="${skyColor((sun[i] + sun[i + 1]) / 2, night)}"/>`;
+    s += `<line x1="${padL}" x2="${Wd - padR}" y1="${y(0)}" y2="${y(0)}" stroke="#FFFFFF" stroke-opacity=".75" stroke-dasharray="3 3"/>`;
+    [-30, 0, 30, 60, yMax === 90 ? 90 : null].filter((a) => a !== null).forEach((a) => { s += `<text x="${padL - 4}" y="${y(a) + 4}" class="ax" text-anchor="end">${a}°</text>`; });
+    [0, 6, 12, 18, 24].forEach((h) => { s += `<text x="${x(h * 60)}" y="${H - 8}" class="ax" text-anchor="middle">${pad2(h)}</text>`; });
+    const line = (arr) => arr.map((a, i) => `${i ? 'L' : 'M'}${x(i * 10).toFixed(1)} ${y(a).toFixed(1)}`).join('');
+    s += `<path d="${line(moon)}" style="stroke:var(--moon)" stroke-width="2" stroke-dasharray="5 4" fill="none"/>`;
+    s += `<path d="${line(sun)}" stroke="#1B1B1B" stroke-opacity=".35" stroke-width="4.5" fill="none"/><path d="${line(sun)}" style="stroke:var(--sun)" stroke-width="2.6" fill="none"/>`;
+    if (validDate(t.solarNoon)) {
+      const nx = x((t.solarNoon - day0) / 60000), ny = y(sunMax);
+      s += `<circle cx="${nx.toFixed(1)}" cy="${ny.toFixed(1)}" r="5" style="fill:var(--sun)" stroke="#1B1B1B" stroke-opacity=".4"/>`;
+      s += `<text x="${nx.toFixed(1)}" y="${(ny - 9 < 18 ? ny + 20 : ny - 9).toFixed(1)}" class="tl" text-anchor="middle">${sunMax.toFixed(1)}°</text>`;
+    }
+    host.innerHTML = s + '</svg>';
+    const mt = window.SunCalc.getMoonTimes(day0, lat, lng);
+    const moonRise = mt.alwaysUp ? '整天在天上' : mt.alwaysDown ? '今天不升' : hhmm(mt.rise);
+    const illum = Math.round(window.SunCalc.getMoonIllumination(validDate(t.night) ? t.night : new Date(day0.getTime() + 20 * 3600000)).fraction * 100);
+    let starsCell = '<b class="m">—</b>';
+    if (lastWeather && validDate(t.night)) {
+      const r = scoreAtTarget(lastWeather.data, t.night, window.WeatherMath.starsScore);
+      starsCell = r ? `<b class="m" style="color:${scoreTextColor(r.result.score)}">${r.result.score}</b>` : '<b class="m" style="font-size:14px">超出預報</b>';
+    }
+    document.getElementById('trackFacts').innerHTML =
+      `<div><span>日出</span><b class="m">${hhmm(t.sunrise)}</b></div><div><span>日落</span><b class="m">${hhmm(t.sunset)}</b></div><div><span>正午高度</span><b class="m">${sunMax.toFixed(1)}°</b></div>` +
+      `<div><span>月出</span><b class="m">${moonRise}</b></div><div><span>月光</span><b class="m">${illum}%</b></div><div><span>觀星 <span class="m">${hhmm(t.night)}</span></span>${starsCell}</div>`;
+    document.getElementById('trackDay').textContent = md(day0);
+  }
+
+  // 錶盤＋四格＋日月軌跡（同一天＝下一個光影時刻所在那天）
+  function renderSkyPanels(now, ev) {
+    const host = document.getElementById('skyDial');
+    if (!coords || !host) return;
+    const legSky = document.getElementById('legSky');
+    if (legSky) legSky.style.background = `linear-gradient(90deg,${skyColor(-15, isNightTheme())},${skyColor(0, isNightTheme())},${skyColor(30, isNightTheme())})`;
+    if (!ev || !validDate(ev.t)) {
+      host.innerHTML = '<p class="muted">此緯度這幾天沒有藍調／黃金時刻（極晝或極夜），無法畫出天色時鐘。</p>';
+      document.getElementById('dialCells').innerHTML = '';
+      return;
+    }
+    const day0 = dayStartOf(ev.t);
+    const t = window.WeatherMath.getGoldenBlueHours(new Date(day0.getTime() + 12 * 3600000), coords.lat, coords.lng);
+    host.innerHTML = dialSvg(day0, t, ev);
+    document.getElementById('dialDay').textContent = mdw(day0);
+    renderDialCells(t);
+    renderTrack(day0, t);
+  }
+
+  // ---- 半圓儀表（大景機率）：指針指分數；40／75＝App 門檻；無法判斷時不畫指針 ----
+  function gaugeSvg(score, label) {
+    const cx = 80, cy = 78, r = 60;
+    const ang = (v) => Math.PI * (1 - v / 100);
+    const P = (v, rr) => [cx + rr * Math.cos(ang(v)), cy - rr * Math.sin(ang(v))];
+    const seg = (v0, v1, n) => { const [x0, y0] = P(v0, r), [x1, y1] = P(v1, r); return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" style="stroke:var(--s${n})" stroke-width="12" fill="none"/>`; };
+    const unknown = score == null;
+    let s = `<svg class="gauge" viewBox="0 0 160 100" role="img" aria-label="${label} ${unknown ? '無法判斷' : score + ' 分'}">`;
+    s += `<g${unknown ? ' opacity=".3"' : ''}>${seg(0, 40, 0)}${seg(40.4, 60, 1)}${seg(60.4, 75, 2)}${seg(75.4, 100, 3)}</g>`;
+    for (let v = 0; v <= 100; v += 10) {
+      const [a, b] = P(v, r - 9), [e, f] = P(v, r - (v % 50 ? 13 : 17));
+      s += `<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${e.toFixed(1)}" y2="${f.toFixed(1)}" style="stroke:var(--steel)" stroke-width="${v % 50 ? 1 : 1.6}"/>`;
+    }
+    [40, 75].forEach((v) => { const [tx, ty] = P(v, r + 11); s += `<text x="${tx.toFixed(1)}" y="${(ty + 2).toFixed(1)}" class="gt">${v}</text>`; });
+    if (unknown) {
+      s += `<text x="${cx}" y="${cy - 4}" class="gq">?</text>`;
+    } else {
+      const [nx, ny] = P(Math.max(0, Math.min(100, score)), r - 4);
+      s += `<line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" style="stroke:var(--ink)" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="5.5" style="fill:var(--ink)"/>`;
+    }
+    return s + '</svg>';
+  }
+
+  // 雲層高度 vs 機位（高度計）
+  function altimeterSvg(cloudM, spotM) {
+    const lo0 = Math.min(cloudM, spotM) - 300, hi0 = Math.max(cloudM, spotM) + 300;
+    const span = hi0 - lo0;
+    const step = [50, 100, 200, 250, 500, 1000, 2000].find((st) => span / st <= 7) || 2000;
+    const lo = Math.max(0, Math.floor(lo0 / step) * step), hi = Math.ceil(hi0 / step) * step;
+    const yy = (m) => 8 + 124 * (hi - m) / (hi - lo);
+    const fmtM = (m) => (m >= 1000 ? (m / 1000).toFixed(m % 1000 ? (m % 100 ? 2 : 1) : 0) + 'k' : String(m));
+    let s = `<svg viewBox="0 0 92 140" role="img" aria-label="雲層高度約 ${cloudM} 公尺、機位 ${spotM} 公尺"><line x1="34" x2="34" y1="8" y2="132" style="stroke:var(--steel)" stroke-width="1.5"/>`;
+    for (let m = lo; m <= hi; m += step) s += `<line x1="30" x2="38" y1="${yy(m).toFixed(1)}" y2="${yy(m).toFixed(1)}" style="stroke:var(--steel)"/><text x="26" y="${(yy(m) + 3.5).toFixed(1)}" class="ax2" text-anchor="end">${fmtM(m)}</text>`;
+    s += `<rect x="40" y="${(yy(cloudM) - 7).toFixed(1)}" width="48" height="14" rx="7" style="fill:var(--line)"/>`;
+    s += `<line x1="38" x2="90" y1="${yy(cloudM).toFixed(1)}" y2="${yy(cloudM).toFixed(1)}" style="stroke:var(--ink)" stroke-width="1.5" stroke-dasharray="3 2"/>`;
+    s += `<path d="M40 ${yy(spotM).toFixed(1)}l10 -6v12z" style="fill:var(--acc)"/><line x1="50" x2="90" y1="${yy(spotM).toFixed(1)}" y2="${yy(spotM).toFixed(1)}" style="stroke:var(--acc)" stroke-width="2"/>`;
+    return s + '</svg>';
+  }
+
+  const KIND_ICON = { glow: 'flame', sea: 'cloud', stars: 'moon-stars', liuli: 'diamond', blue: 'sun-moon' };
+  const KIND_PART = { glow: '傍晚', sea: '清晨', stars: '入夜', liuli: '入夜', blue: '' };
+
+  // 大景機率卡：每個主打現象「下一次」目標時刻的分數儀表＋雲海高度計＋因子刻度條
+  function renderTargets(data, groundElevationM) {
+    const el = document.getElementById('blueHourScoreLine');
+    const kinds = selectedSpot
+      ? [...new Set(selectedSpot.types.map((t) => TYPE_TO_KIND[t]).filter(Boolean))]
+      : ['glow', 'sea', 'stars'];
+    const order = ['glow', 'sea', 'stars', 'liuli'];
+    kinds.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const items = [];
+    kinds.forEach((kind) => {
+      const target = nextPhenomenonTime(coords.lat, coords.lng, kind);
+      const r = target ? scoreAtTarget(data, target, KIND_META[kind].scoreFn) : null;
+      items.push({ kind, target, r });
+    });
+    const boxes = items.map(({ kind, target, r }) => {
+      const meta = KIND_META[kind];
+      if (!r) {
+        return `<div class="gbox"><div class="gl">${ic(KIND_ICON[kind])}${meta.label}</div>${gaugeSvg(null, meta.label)}<div class="sc m" style="color:var(--steel)">—</div><div class="at">超出預報範圍</div></div>`;
+      }
+      const sc = r.result.score;
+      const when = `${md(target)} ${hhmm(target)} ${KIND_PART[kind]}`;
+      if (sc == null) {
+        return `<div class="gbox"><div class="gl">${ic(KIND_ICON[kind])}${meta.label}</div>${gaugeSvg(null, meta.label)}<div class="sc m" style="color:var(--steel)">?</div><div class="st" style="color:var(--steel)">無法判斷</div><div class="at m">${when}</div><p class="why">${esc(r.result.reason || '缺資料')}</p></div>`;
+      }
+      const st = statusOf(sc);
+      return `<div class="gbox"><div class="gl">${ic(KIND_ICON[kind])}${meta.label}</div>${gaugeSvg(sc, meta.label)}<div class="sc m" style="color:var(--t${st})">${sc}</div><div class="st" style="color:var(--t${st})">${STATUS_WORD[st]}</div><div class="at m">${when}</div></div>`;
+    }).join('');
+    let extra = '';
+    // 因子區塊順序：雲海（含高度計）先、火燒雲、觀星、琉璃光——同樣稿
+    const extraOrder = ['sea', 'glow', 'stars', 'liuli'];
+    items.slice().sort((a, b) => extraOrder.indexOf(a.kind) - extraOrder.indexOf(b.kind)).forEach(({ kind, target, r }) => {
+      if (!r) return;
+      const b = r.result.breakdown;
+      if (kind === 'sea') {
+        const cb = window.WeatherMath.cloudBaseAMSL(r.h, groundElevationM);
+        const spotM = selectedSpot && Number.isFinite(selectedSpot.min_elevation) ? selectedSpot.min_elevation : null;
+        if (spotM !== null) {
+          const diff = spotM - cb.amslM;
+          const note = diff > 100 ? '機位在雲層之上，適合拍攝' : diff < -100 ? '機位可能在雲層之下，看不到雲海' : '機位接近雲層高度，可能置身雲霧中';
+          extra += `<div class="alt">${altimeterSvg(cb.amslM, spotM)}<div><div class="row2"><span>雲層高度（估）</span><b class="m">${cb.amslM} m</b></div><div class="row2"><span>機位</span><b class="m" style="color:var(--acc)">${spotM} m</b></div><p style="margin-top:6px">${note}</p><p class="note" style="margin-top:4px">LCL 公式 125×(氣溫−露點)，理論估算非實測</p></div></div>`;
+        }
+        extra += seaLayerNote(r.result);
+        extra += `<div class="sub2">${ic('cloud')}雲海因子・<span class="m">${hhmm(target)}</span></div>${seaFactorsHtml(b)}`;
+      } else if (kind === 'glow') {
+        extra += `<div class="sub2">${ic('flame')}火燒雲因子・<span class="m">${hhmm(target)}</span></div>${glowFactorsHtml(b)}`;
+      } else if (kind === 'stars') {
+        extra += `<div class="sub2">${ic('moon-stars')}觀星因子・<span class="m">${hhmm(target)}</span></div>${starsFactorsHtml(b)}`;
+      } else if (kind === 'liuli') {
+        if (r.result.score == null) extra += `<p class="unknown-note">⚠️ <b>琉璃光無法判斷</b>：${esc(r.result.reason || '')}。</p>`;
+        extra += `<div class="sub2">${ic('diamond')}琉璃光因子・<span class="m">${hhmm(target)}</span></div>${liuliFactorsHtml(b)}`;
+      }
+    });
+    el.innerHTML = `<div class="gg">${boxes}</div>${extra}`;
+  }
+
+  // ---- 黃金/藍調時刻倒數（v0.19 起畫在天色時鐘中央） ----
   let countdownTimer = null;
 
   function nextEvent(now, lat, lng) {
@@ -932,39 +1411,81 @@
       const now = new Date();
       const ev = nextEvent(now, coords.lat, coords.lng);
       if (!ev.t || Number.isNaN(ev.t.getTime())) {
+        if (dialDrawnKey !== 'none') { renderSkyPanels(now, null); dialDrawnKey = 'none'; }
         document.getElementById('countdownTime').textContent = '無法計算';
         document.getElementById('countdownEvent').textContent = '此緯度可能有極晝/極夜';
         return;
       }
+      // 下一個事件換了（或換地點／換主題／抓完預報）才重畫錶盤，平常每秒只改倒數文字
+      const key = `${coords.lat},${coords.lng},${ev.key},${ev.t.getTime()}`;
+      if (key !== dialDrawnKey) { renderSkyPanels(now, ev); dialDrawnKey = key; }
       const diff = Math.max(0, ev.t - now);
       const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
       const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
       const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
       document.getElementById('countdownTime').textContent = `${h}:${m}:${s}`;
       document.getElementById('countdownEvent').textContent = `距離${ev.key}`;
+      const cd = document.getElementById('dialCd');
+      if (cd) cd.textContent = `倒數 ${h}:${m}:${s}`;
     }
     tick();
     countdownTimer = setInterval(tick, 1000);
   }
 
   // ---- 氣象評分（分開呈現各指數，附因子拆解，不用黑箱環形圖） ----
+  // 2026-10-19 v0.19：刻度條（強調色填滿，40／75 兩條刻度＝App 門檻）；子分數算不出來（null）畫斜線、值寫「無法判斷」
   function factorBar(label, valueLabel, score) {
-    return `<div class="factor-row">
-      <div class="factor-label"><span>${label}</span><span>${valueLabel}</span></div>
-      <div class="factor-bar"><div style="width:${Math.max(0, Math.min(100, score))}%;background:${scoreColor(score)}"></div></div>
+    if (score == null || !Number.isFinite(score)) {
+      return `<div class="factor-row">
+      <div class="factor-label"><span>${label}</span><b class="m">${valueLabel == null ? '無法判斷' : valueLabel}</b></div>
+      <div class="factor-bar na" title="無法判斷"></div>
     </div>`;
+    }
+    return `<div class="factor-row">
+      <div class="factor-label"><span>${label}</span><b class="m">${valueLabel == null ? '—' : valueLabel}</b></div>
+      <div class="factor-bar"><i style="width:${Math.max(2, Math.min(100, score))}%"></i><s style="left:40%"></s><s style="left:75%"></s></div>
+    </div>`;
+  }
+  function glowFactorsHtml(b) {
+    return factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score) +
+      factorBar('中高雲量(40-80%最佳)', Math.min(100, b.midHighCloud.value) + '%', b.midHighCloud.score) +
+      factorBar('濕度(越低越通透)', Math.round(b.humidity.value) + '%', b.humidity.score) +
+      factorBar('能見度', Math.round(b.visibility.value / 1000) + ' km', b.visibility.score);
+  }
+  // 逆溫比的是「地面→地面上方第一個氣壓層」（高山景點不再拿地底下的 925hPa 硬比），標籤照實際用到的層寫
+  function seaFactorsHtml(b) {
+    const inv = b.inversion, dep = b.inversionDepth, hum = b.upperHumidity;
+    return factorBar(`逆溫強度（地面→${inv.to || '上方氣壓層'}，上層越暖越好）`, fmtNum(inv.value, 1, '°C'), inv.score) +
+      factorBar(`逆溫層厚度（${dep.from && dep.to ? dep.from + '→' + dep.to : '再上一層'}，持平或續暖＝夠厚）`, fmtNum(dep.value, 1, '°C'), dep.score) +
+      factorBar(`高空濕度（${hum.level || '上方氣壓層'}）`, fmtNum(hum.value, 0, '%'), hum.score) +
+      factorBar('地表風速(靜穩最佳)', fmtNum(b.windSpeed.value, 1, ' m/s'), b.windSpeed.score);
+  }
+  function starsFactorsHtml(b) {
+    return factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score) +
+      factorBar('月相亮度', b.moonPhase.value + '%', b.moonPhase.score) +
+      factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score);
+  }
+  function liuliFactorsHtml(b) {
+    return factorBar(`逆溫強度（地面→${b.inversion.to || '上方氣壓層'}，谷地夠不夠鎖霧）`, fmtNum(b.inversion.value, 1, '°C'), b.inversion.score) +
+      factorBar('能見度(500-3000m最佳)', fmtNum(b.visibility.value, 0, ' m'), b.visibility.score) +
+      factorBar('地表風速(靜穩最佳)', fmtNum(b.windSpeed.value, 1, ' m/s'), b.windSpeed.score);
+  }
+  // 雲海：無法判斷的原因／高山改用哪一層，寫在卡片上
+  function seaLayerNote(sea) {
+    if (sea.score == null) {
+      return `<p class="unknown-note">⚠️ <b>無法判斷逆溫</b>：${esc(sea.reason || '缺資料')}。雲海指數最重要的因子（逆溫，佔 50%）算不出來，所以不給分數。</p>`;
+    }
+    if (sea.layer && sea.layer.base !== 925) {
+      return `<p class="note" style="margin:8px 0 0">地面約 ${sea.layer.groundM} m，925hPa 等較低的氣壓層在地面以下，逆溫改用機位上方的 ${sea.layer.base}hPa（約 ${sea.layer.baseHeightM} m）判斷。</p>`;
+    }
+    return '';
   }
 
   function renderGlowCard(glow, title) {
     const b = glow.breakdown;
     return `<div class="score-card" data-concept="glow">
-      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(glow.score)}">${glow.score}</span></div>
-      <div class="score-factors">
-        ${factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score)}
-        ${factorBar('中高雲量(40-80%最佳)', Math.min(100, b.midHighCloud.value) + '%', b.midHighCloud.score)}
-        ${factorBar('濕度(越低越通透)', b.humidity.value + '%', b.humidity.score)}
-        ${factorBar('能見度', Math.round(b.visibility.value / 1000) + 'km', b.visibility.score)}
-      </div>
+      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(glow.score)}">${glow.score}</span></div>
+      <div class="score-factors">${glowFactorsHtml(b)}</div>
       ${glow.alert ? '<div class="ring-alert">🔥 大景預警</div>' : ''}
       <div class="confidence-slot"></div>
     </div>`;
@@ -973,7 +1494,7 @@
   function renderSeaCard(sea, h, groundElevationM) {
     const b = sea.breakdown;
     const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
-    let heightNote = `雲海高度估計約 <b>${cb.amslM}m</b>（海拔，理論估算非實測）`;
+    let heightNote = `雲海高度估計約 <b class="m">${cb.amslM} m</b>（海拔，理論估算非實測）`;
     let below = false;
     if (selectedSpot && Number.isFinite(selectedSpot.min_elevation)) {
       const diff = selectedSpot.min_elevation - cb.amslM;
@@ -983,13 +1504,9 @@
         : `。你選的機位（${selectedSpot.min_elevation}m）接近雲層高度，可能置身雲霧中`;
     }
     return `<div class="score-card" data-concept="sea">
-      <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><a class="info-link" href="#about:sea">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(sea.score)}">${sea.score}</span></div>
-      <div class="score-factors">
-        ${factorBar('逆溫強度(925hPa較地面暖越好)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
-        ${factorBar('逆溫層厚度(850hPa續暖代表夠厚)', b.inversionDepth.value.toFixed(1) + '°C', b.inversionDepth.score)}
-        ${factorBar('高空濕度', Math.round(b.upperHumidity.value) + '%', b.upperHumidity.score)}
-        ${factorBar('地表風速(靜穩最佳)', b.windSpeed.value.toFixed(1) + 'm/s', b.windSpeed.score)}
-      </div>
+      <div class="score-head"><span class="score-icon">☁️</span><span class="score-title">雲海指數</span><a class="info-link" href="#about:sea">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(sea.score)}">${sea.score == null ? '—' : sea.score}</span></div>
+      <div class="score-factors">${seaFactorsHtml(b)}</div>
+      ${seaLayerNote(sea)}
       <p class="muted" style="margin:8px 0 0">${heightNote}</p>
       ${/* 2026-10-13 UI/UX 走查：機位估計在雲層之下時，同一張卡又亮「大景預警」互相打架。
            指數只看大氣條件（逆溫/濕度/風）；機位能不能站在雲上是另一件事——兩者都成立才亮預警，
@@ -1003,12 +1520,8 @@
   function renderStarsCard(stars) {
     const b = stars.breakdown;
     return `<div class="score-card" data-concept="stars">
-      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(stars.score)}">${stars.score}</span></div>
-      <div class="score-factors">
-        ${factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score)}
-        ${factorBar('月相亮度', b.moonPhase.value + '%', b.moonPhase.score)}
-        ${factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score)}
-      </div>
+      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(stars.score)}">${stars.score}</span></div>
+      <div class="score-factors">${starsFactorsHtml(b)}</div>
       <p class="muted" style="margin:8px 0 0">⚠️ 已算月相，但未考慮市區人造光害，市區或近城鎮地點實際觀星品質會比這個分數差很多。</p>
       <div class="confidence-slot"></div>
     </div>`;
@@ -1017,12 +1530,9 @@
   function renderLiuliCard(liuli) {
     const b = liuli.breakdown;
     return `<div class="score-card" data-concept="liuli">
-      <div class="score-head"><span class="score-icon">💎</span><span class="score-title">琉璃光指數</span><a class="info-link" href="#about:liuli">ℹ️ 怎麼算的</a><span class="score-num" style="color:${scoreTextColor(liuli.score)}">${liuli.score}</span></div>
-      <div class="score-factors">
-        ${factorBar('逆溫強度(谷地夠不夠鎖霧)', b.inversion.value.toFixed(1) + '°C', b.inversion.score)}
-        ${factorBar('能見度(500-3000m最佳)', Math.round(b.visibility.value) + 'm', b.visibility.score)}
-        ${factorBar('地表風速(靜穩最佳)', b.windSpeed.value.toFixed(1) + 'm/s', b.windSpeed.score)}
-      </div>
+      <div class="score-head"><span class="score-icon">💎</span><span class="score-title">琉璃光指數</span><a class="info-link" href="#about:liuli">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(liuli.score)}">${liuli.score == null ? '—' : liuli.score}</span></div>
+      <div class="score-factors">${liuliFactorsHtml(b)}</div>
+      ${liuli.score == null ? `<p class="unknown-note">⚠️ <b>無法判斷逆溫</b>：${esc(liuli.reason || '缺資料')}。</p>` : ''}
       <p class="muted" style="margin:8px 0 0">⚠️ 需要谷地下方剛好有城鎮燈光被霧暈染，這是這個地點的地形特色，換一個沒有城鎮燈光的谷地公式算出高分也沒有意義。</p>
       ${liuli.alert ? '<div class="ring-alert">💎 大景預警</div>' : ''}
       <div class="confidence-slot"></div>
@@ -1095,6 +1605,13 @@
     const showLiuli = !!(types && types.includes('liuli_guang'));
     const glowLabel = (types && types.includes('sunrise') ? '日出' : '日落') + '火燒雲指數';
 
+    // 2026-10-19 v0.19：改成表格式（表頭＋每天一列，點開看因子拆解）；欄位順序同樣稿：雲海 清晨／火燒雲 傍晚／觀星 入夜
+    const cols = [];
+    if (showSea) cols.push({ kind: 'sea', head: '雲海 清晨', icon: '☁️' });
+    if (showGlow) cols.push({ kind: 'glow', head: '火燒雲 傍晚', icon: '🔥' });
+    if (showStars) cols.push({ kind: 'stars', head: '觀星 入夜', icon: '✨' });
+    if (showLiuli) cols.push({ kind: 'liuli', head: '琉璃光 入夜', icon: '💎' });
+
     const items = [];
     for (let i = 0; i < 3; i++) {
       const day = new Date(now);
@@ -1102,50 +1619,35 @@
       const times = window.WeatherMath.getGoldenBlueHours(day, lat, lng);
       const glowTarget = times.duskGolden.start instanceof Date && !Number.isNaN(times.duskGolden.start.getTime()) ? times.duskGolden.start : times.sunset;
       const seaTarget = times.dawnGolden.start instanceof Date && !Number.isNaN(times.dawnGolden.start.getTime()) ? times.dawnGolden.start : times.sunrise;
-      const nightTarget = times.duskBlue.end;
+      const nightTarget = times.night; // 天文昏影結束（−18°）
+      const targetOf = { glow: glowTarget, sea: seaTarget, stars: nightTarget, liuli: nightTarget };
 
-      const badges = [];
+      const cells = [];
       const details = [];
-
-      if (showGlow) {
-        const r = scoreAtTarget(data, glowTarget, window.WeatherMath.fieryGlowScore);
-        if (r) {
-          badges.push(`${badge(r.result.score, `🔥 ${r.result.score}`)}`);
-          details.push(renderGlowCard(r.result, glowLabel));
-        }
-      }
-      if (showSea) {
-        const r = scoreAtTarget(data, seaTarget, window.WeatherMath.seaOfCloudsScore);
-        if (r) {
-          badges.push(`${badge(r.result.score, `☁️ ${r.result.score}`)}`);
-          details.push(renderSeaCard(r.result, r.h, groundElevationM));
-        }
-      }
-      if (showStars) {
-        const r = scoreAtTarget(data, nightTarget, window.WeatherMath.starsScore);
-        if (r) {
-          badges.push(`${badge(r.result.score, `✨ ${r.result.score}`)}`);
-          details.push(renderStarsCard(r.result));
-        }
-      }
-      if (showLiuli) {
-        const r = scoreAtTarget(data, nightTarget, window.WeatherMath.liuliGuangScore);
-        if (r) {
-          badges.push(`${badge(r.result.score, `💎 ${r.result.score}`)}`);
-          details.push(renderLiuliCard(r.result));
-        }
-      }
-
-      if (!badges.length) {
-        items.push(`<div class="fc-item"><div class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="muted">超出預報範圍或此緯度無法計算</div></div></div>`);
+      let any = false;
+      cols.forEach((c) => {
+        const r = scoreAtTarget(data, targetOf[c.kind], KIND_META[c.kind].scoreFn);
+        if (!r) { cells.push('<div class="fc-cell"><span class="sc-chip na">—</span></div>'); return; }
+        any = true;
+        const sc = r.result.score;
+        cells.push(`<div class="fc-cell" title="${c.icon} ${KIND_META[c.kind].label} ${hhmm(targetOf[c.kind])}">${badge(sc, `<b class="m">${sc == null ? '?' : sc}</b>`)}</div>`);
+        if (c.kind === 'glow') details.push(renderGlowCard(r.result, glowLabel));
+        if (c.kind === 'sea') details.push(renderSeaCard(r.result, r.h, groundElevationM));
+        if (c.kind === 'stars') details.push(renderStarsCard(r.result));
+        if (c.kind === 'liuli') details.push(renderLiuliCard(r.result));
+      });
+      const dayCell = `<div class="fc-day">${dayLabels[i]}<small class="m">${mdw(day)}</small></div>`;
+      if (!any) {
+        items.push(`<div class="fc-item"><div class="fc-row">${dayCell}<div class="muted" style="grid-column:2/-1">超出預報範圍或此緯度無法計算</div></div></div>`);
         continue;
       }
       items.push(`<details class="fc-item">
-        <summary class="fc-row"><div class="fc-day">${dayLabels[i]}</div><div class="fc-scores">${badges.join('')}</div></summary>
+        <summary class="fc-row">${dayCell}${cells.join('')}</summary>
         <div class="fc-detail">${details.join('')}</div>
       </details>`);
     }
-    container.innerHTML = items.join('');
+    container.style.setProperty('--fc-cols', cols.length);
+    container.innerHTML = `<div class="fc-head"><span></span>${cols.map((c) => `<span>${c.head}</span>`).join('')}</div>` + items.join('');
   }
 
   // 氣象署即時觀測交叉驗證：跟我們自己算出來的預測放在一起對照，
@@ -1181,6 +1683,11 @@
         const slot = card.querySelector('.confidence-slot');
         if (!fn || !slot) return;
         const conf = window.WeatherMath.ensembleConfidence(ens.hourly, idx, fn);
+        // 2026-10-19 v0.19：缺資料的模式成員不列入；能用的不到一半就明講「無法計算」（舊版把 null 當滿分，顯示的信心是假的）
+        if (conf && conf.unavailable) {
+          slot.innerHTML = `<p class="muted" style="margin-top:6px">🎯 模型信心：無法計算——${conf.memberCount} 組模式這次沒有提供「${conf.missingLabels.join('、')}」資料，缺資料的成員不列入計算，${conf.used ? `能用的只有 ${conf.used} 組（不到一半）` : '沒有任何一組能用'}，所以不顯示信心區間。這不代表信心高或低。</p>`;
+          return;
+        }
         if (conf) {
           // 2026-10-13 UI/UX 走查：上方大字分數（主預報）可能不在多組模式的 80% 區間內（例：83 分 vs 41~48 分），
           // 之前沒說明，看起來互相矛盾。落在區間外時明講「主預報比多數模式樂觀／保守」。
@@ -1192,7 +1699,8 @@
               ? `<br>⚠️ 上方 ${main} 分是主預報模式的結果，<b>比多數模式樂觀</b>（多數落在 ${conf.p10}~${conf.p90} 分）——模式間意見分歧，請把這個分數打折看。`
               : `<br>ℹ️ 上方 ${main} 分是主預報模式的結果，<b>比多數模式保守</b>（多數落在 ${conf.p10}~${conf.p90} 分）——實際可能比主預報好一些。`;
           }
-          slot.innerHTML = `<p class="muted" style="margin-top:6px">🎯 模型信心：<b>${conf.level}</b>（${conf.memberCount}組模式中80%落在${conf.p10}~${conf.p90}分）${gap}</p>`;
+          const skippedNote = conf.skipped ? `；另有 ${conf.skipped} 組缺資料未列入` : '';
+          slot.innerHTML = `<p class="muted" style="margin-top:6px">🎯 模型信心：<b>${conf.level}</b>（${conf.used}組模式中80%落在${conf.p10}~${conf.p90}分${skippedNote}）${gap}</p>`;
         }
       });
     } catch (e) { /* 信心區間抓取失敗就不顯示，不用報錯打擾使用者 */ }
@@ -1214,27 +1722,14 @@
       renderForecast3(data, coords.lat, coords.lng, groundElevationM);
 
       // 主打現象要顯示「下一次真正發生的目標時刻」預測分數，跟首頁「今日推薦」用同一套
-      // nextPhenomenonTime()/各自的scoreFn，兩處數字才對得起來——之前這裡只算藍調時刻，
-      // 導致從首頁「查看預測」點進來，只看到下面「現在此刻」卡片的即時分數(常常是0，
-      // 因為現在通常不是傍晚/入夜的目標時刻)，看起來像首頁在騙人
-      const blueLine = document.getElementById('blueHourScoreLine');
-      const kinds = selectedSpot
-        ? [...new Set([...selectedSpot.types.map((t) => TYPE_TO_KIND[t]).filter(Boolean), 'blue'])]
-        : ['blue'];
-      const lines = [];
-      kinds.forEach((kind) => {
-        const target = nextPhenomenonTime(coords.lat, coords.lng, kind);
-        if (!target) return;
-        const idxK = window.WeatherMath.nearestHourIndex(data.hourly, target);
-        const closestK = new Date(data.hourly.time[idxK]);
-        if (Math.abs(closestK - target) > 3 * 3600 * 1000) return;
-        const hK = window.WeatherMath.hourAtWindow(data.hourly, target);
-        const meta = KIND_META[kind];
-        const result = meta.scoreFn(hK);
-        const timeLabel = target.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-        lines.push(`${meta.icon} ${meta.label}預測（${timeLabel}）：${badge(result.score, `${result.score}`)}${result.alert ? '　值得留意' : ''}`);
-      });
-      blueLine.innerHTML = lines.join('<br>');
+      // nextPhenomenonTime()/各自的scoreFn，兩處數字才對得起來（2026-10-19 v0.19 起畫成「大景機率」儀表）
+      lastWeather = { data, groundElevationM };
+      renderTargets(data, groundElevationM);
+      dialDrawnKey = ''; // 錶盤四格、日月軌跡的分數要跟著更新
+      updateCountdown();
+      const fetchedAt = new Date();
+      document.getElementById('spotNowMeta').textContent =
+        `${Math.abs(coords.lat).toFixed(4)}°${coords.lat >= 0 ? 'N' : 'S'} ${Math.abs(coords.lng).toFixed(4)}°${coords.lng >= 0 ? 'E' : 'W'} · 預報 ${md(fetchedAt)} ${hhmm(fetchedAt)}`;
     } catch (err) {
       statusEl.textContent = friendlyFetchError(err);
     }
@@ -1331,18 +1826,28 @@
     document.getElementById('countdownEvent').textContent = '請先定位';
     document.getElementById('countdownTime').textContent = '--:--:--';
     if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    lastWeather = null;
+    dialDrawnKey = '';
+    document.getElementById('skyDial').innerHTML = '';
+    document.getElementById('dialCells').innerHTML = '';
+    document.getElementById('blueHourScoreLine').innerHTML = '<span class="muted">抓取氣象預測後顯示</span>';
     renderLastLocationInfo();
   });
   renderLastLocationInfo();
 
-  const THEME_KEY = 'lc_theme_v1';
-  const darkModeToggle = document.getElementById('darkModeToggle');
-  darkModeToggle.checked = document.documentElement.getAttribute('data-theme') === 'dark';
-  darkModeToggle.addEventListener('change', () => {
-    const theme = darkModeToggle.checked ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* 存不進去下次就退回預設 */ }
-  });
+  // 2026-10-19 v0.19：主題四選一（自動／淺色／深色／夜拍模式），實際切換在 <head> 的 window.__lcTheme
+  const themeBtns = document.querySelectorAll('[data-theme-opt]');
+  function syncThemeButtons() {
+    const pref = window.__lcTheme ? window.__lcTheme.get() : 'auto';
+    themeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeOpt === pref)));
+  }
+  themeBtns.forEach((b) => b.addEventListener('click', () => {
+    if (window.__lcTheme) window.__lcTheme.set(b.dataset.themeOpt);
+    syncThemeButtons();
+  }));
+  syncThemeButtons();
+  // 錶盤／日月軌跡的天空色在夜拍模式要轉紅，換主題（含系統深淺色切換）就重畫
+  document.addEventListener('lc-theme', () => { if (coords) { dialDrawnKey = ''; updateCountdown(); } });
 
   // ---- service worker + 更新橫幅 ----
   // 教訓(401登山管理平台踩過同一個坑)：長開分頁瀏覽器不會主動去檢查有沒有新版sw，

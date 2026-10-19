@@ -16,15 +16,26 @@
     return 100;
   }
 
+  // 2026-10-19 v0.19（老闆裁示）：藍調時刻改用攝影慣用定義——太陽在地平線下 4°～6°。
+  // 舊版拿「天文曙暮光」（−18°～−12°）當藍調，那時天色幾乎全黑，比攝影師說的藍調早約 40 分鐘。
+  // 黃金時刻跟著改成 −4°～+6°，讓兩段首尾相接、不重疊（舊版晨間黃金從 −12° 開始，會蓋住藍調）。
+  // 觀星／琉璃光要「真正入夜」，另外回傳 night（天文昏影結束，−18°），不再借用藍調的結束時間。
+  const BLUE_HOUR_DEG = { from: -6, to: -4 };
+  const GOLDEN_HOUR_DEG = { from: -4, to: 6 };
+  if (window.SunCalc && !window.SunCalc.times.some((r) => r[1] === 'blueHourDawnEnd')) {
+    window.SunCalc.addTime(BLUE_HOUR_DEG.to, 'blueHourDawnEnd', 'blueHourDuskStart');
+  }
   function getGoldenBlueHours(date, lat, lng) {
     const t = window.SunCalc.getTimes(date, lat, lng);
     return {
-      dawnBlue: { start: t.nightEnd, end: t.nauticalDawn },
-      dawnGolden: { start: t.nauticalDawn, end: t.goldenHourEnd },
-      duskGolden: { start: t.goldenHour, end: t.sunset },
-      duskBlue: { start: t.nauticalDusk, end: t.night },
+      dawnBlue: { start: t.dawn, end: t.blueHourDawnEnd },              // −6° → −4°
+      dawnGolden: { start: t.blueHourDawnEnd, end: t.goldenHourEnd },   // −4° → +6°
+      duskGolden: { start: t.goldenHour, end: t.blueHourDuskStart },    // +6° → −4°
+      duskBlue: { start: t.blueHourDuskStart, end: t.dusk },            // −4° → −6°
+      night: t.night,                                                   // −18°：天文昏影結束（觀星／琉璃光）
       sunrise: t.sunrise,
-      sunset: t.sunset
+      sunset: t.sunset,
+      solarNoon: t.solarNoon
     };
   }
 
@@ -70,33 +81,85 @@
   // 引用90%，原本85%滿分偏寬鬆，改為90%。風速：查到的經驗法則是「2-3級風(約
   // 1.6-5.4m/s)都算有利」，原本只有≤2m/s給滿分偏窄，滿分窗放寬到≤3m/s(歸零門檻
   // 5m/s不變，跟2-3級風力上緣大致吻合)。仍是單篇文獻對照校準，非精雕公式。
+  // ---- 逆溫要比較「地面」跟「機位上方」的氣壓層 ----
+  // 2026-10-19 v0.19（老闆裁示）：舊版一律拿地面 2m 氣溫比 925hPa。925hPa 只在海拔約 800m，
+  // 高山景點（武嶺 3275m）的 925hPa 其實在地底下，模式給的是外插值，算出「逆溫 23.9°C」是假訊號、雲海分數因此偏高。
+  // 現在用氣壓層的實際高度（Open-Meteo geopotential_height）挑「第一個比地面高 100m 以上」的層當逆溫上緣，
+  // 再往上一層判斷厚度；挑不到或缺資料就回傳 score:null（畫面顯示「無法判斷」），不再硬算。
+  // 沒有 levels 資料的舊呼叫端（只有 925/850 溫度）用標準大氣高度，地面高於 925hPa 一樣判無法判斷。
+  const PRESSURE_LEVELS = [925, 850, 700, 600, 500];
+  const STD_LEVEL_HEIGHT = { 925: 760, 850: 1460, 700: 3010, 600: 4200, 500: 5570 };
+  const LAYER_MARGIN_M = 100;
+  const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
+  // full=true（雲海）：要該層濕度＋再上一層溫度（判厚度）；full=false（琉璃光）：只看地面→該層溫差
+  function pickInversionLayer(h, full = true) {
+    const ground = isNum(h.surfaceElevation) ? h.surfaceElevation : 0;
+    const lv = h.levels || {
+      925: { t: h.upperTemp, rh: h.upperHumidity, z: STD_LEVEL_HEIGHT[925] },
+      850: { t: h.upperTemp850, rh: null, z: STD_LEVEL_HEIGHT[850] }
+    };
+    for (let i = 0; i < PRESSURE_LEVELS.length - 1; i++) {
+      const p = PRESSURE_LEVELS[i], q = PRESSURE_LEVELS[i + 1];
+      const lo = lv[p];
+      if (!lo) continue;
+      const z = isNum(lo.z) ? lo.z : STD_LEVEL_HEIGHT[p];
+      if (z < ground + LAYER_MARGIN_M) continue; // 這一層在地面以下（或貼地），不能拿來判逆溫
+      const hi = lv[q];
+      if (!isNum(lo.t) || (full && (!hi || !isNum(hi.t) || !isNum(lo.rh)))) {
+        return { ok: false, reason: `機位上方的 ${p}hPa／${q}hPa 氣壓層缺資料`, ground };
+      }
+      return { ok: true, base: p, top: q, lo, hi, z, ground };
+    }
+    return { ok: false, reason: `地面（約 ${Math.round(ground)}m）以上沒有可用的氣壓層資料`, ground };
+  }
+
   function seaOfCloudsScore(h) {
-    // 第一層：地面→925hPa(約海拔700-800m)，逆溫存不存在的主訊號
-    const inv1 = h.upperTemp - h.surfaceTemp;
+    const windOk = isNum(h.windSpeed);
+    const windScore = !windOk ? null : h.windSpeed <= 3 ? 100
+      : h.windSpeed >= 5 ? 0
+      : clampLerp(h.windSpeed, 3, 100, 5, 0);
+    const layer = isNum(h.surfaceTemp) ? pickInversionLayer(h) : { ok: false, reason: '缺地面氣溫資料' };
+    if (!layer.ok || !windOk) {
+      return {
+        score: null,
+        alert: false,
+        unknown: true,
+        reason: layer.ok ? '缺地表風速資料' : layer.reason,
+        breakdown: {
+          inversion: { value: null, score: null, weight: 0.5 * 0.7, from: '地面', to: null },
+          inversionDepth: { value: null, score: null, weight: 0.5 * 0.3, from: null, to: null },
+          upperHumidity: { value: null, score: null, weight: 0.25, level: null },
+          windSpeed: { value: windOk ? h.windSpeed : null, score: windScore === null ? null : Math.round(windScore), weight: 0.25 }
+        }
+      };
+    }
+    // 第一層：地面→機位上方第一個氣壓層（平地＝925hPa，約海拔700-800m），逆溫存不存在的主訊號
+    const inv1 = layer.lo.t - h.surfaceTemp;
     const inv1Score = inv1 > 0 ? clampLerp(inv1, 0, 50, 6, 100) : clampLerp(inv1, -6, 0, 0, 50);
-    // 第二層：925hPa→850hPa(約海拔1500m)，逆溫層夠不夠「厚」——
-    // 850hPa持平或續暖代表逆溫蓋子夠厚、雲海穩定；快速轉冷代表逆溫層很薄，容易破碎消散
-    const inv2 = h.upperTemp850 - h.upperTemp;
+    // 第二層：再往上一層(平地＝925hPa→850hPa，約海拔1500m)，逆溫層夠不夠「厚」——
+    // 上層持平或續暖代表逆溫蓋子夠厚、雲海穩定；快速轉冷代表逆溫層很薄，容易破碎消散
+    const inv2 = layer.hi.t - layer.lo.t;
     const inv2Score = inv2 >= -1 ? 100 : clampLerp(inv2, -6, 0, -1, 100);
     const inversionScore = inv1Score * 0.7 + inv2Score * 0.3;
 
-    const humidityScore = h.upperHumidity >= 90 ? 100 : clampLerp(h.upperHumidity, 50, 0, 90, 100);
-    const windScore = h.windSpeed <= 3 ? 100
-      : h.windSpeed >= 5 ? 0
-      : clampLerp(h.windSpeed, 3, 100, 5, 0);
+    const upperHumidity = layer.lo.rh;
+    const humidityScore = upperHumidity >= 90 ? 100 : clampLerp(upperHumidity, 50, 0, 90, 100);
 
     const score = inversionScore * 0.5 + humidityScore * 0.25 + windScore * 0.25;
     return {
       score: Math.round(score),
       alert: score > 75,
+      layer: { base: layer.base, top: layer.top, baseHeightM: Math.round(layer.z), groundM: Math.round(layer.ground) },
       breakdown: {
-        inversion: { value: inv1, score: Math.round(inv1Score), weight: 0.5 * 0.7 },
-        inversionDepth: { value: inv2, score: Math.round(inv2Score), weight: 0.5 * 0.3 },
-        upperHumidity: { value: h.upperHumidity, score: Math.round(humidityScore), weight: 0.25 },
+        inversion: { value: inv1, score: Math.round(inv1Score), weight: 0.5 * 0.7, from: '地面', to: `${layer.base}hPa` },
+        inversionDepth: { value: inv2, score: Math.round(inv2Score), weight: 0.5 * 0.3, from: `${layer.base}hPa`, to: `${layer.top}hPa` },
+        upperHumidity: { value: upperHumidity, score: Math.round(humidityScore), weight: 0.25, level: `${layer.base}hPa` },
         windSpeed: { value: h.windSpeed, score: Math.round(windScore), weight: 0.25 }
       }
     };
   }
+  seaOfCloudsScore.requires = ['surfaceTemp', 'windSpeed'];
 
   // 觀星：總雲量(55%)+月相光害(25%)+濕度代表的霾害程度(20%)。
   // 2026-08-27查證Clear Sky Chart(北美業餘天文界20年事實標準)+Bortle Scale：
@@ -151,7 +214,20 @@
   // 跟雲海不同的地方是霧「濃度」要恰到好處：太稀薄看不出暈染感、太濃燈光整個被擋住，
   // 所以能見度用三角形評分抓一個甜蜜區間，不是越低越好。
   function liuliGuangScore(h) {
-    const inv1 = h.upperTemp - h.surfaceTemp;
+    // 2026-10-19：逆溫一樣要用「機位上方」的氣壓層（見 pickInversionLayer），地面高於 925hPa 不再硬比
+    const layer = isNum(h.surfaceTemp) ? pickInversionLayer(h, false) : { ok: false, reason: '缺地面氣溫資料' };
+    if (!layer.ok || !isNum(h.visibility) || !isNum(h.windSpeed)) {
+      return {
+        score: null, alert: false, unknown: true,
+        reason: layer.ok ? '缺能見度或風速資料' : layer.reason,
+        breakdown: {
+          inversion: { value: null, score: null, weight: 0.5, from: '地面', to: null },
+          visibility: { value: isNum(h.visibility) ? h.visibility : null, score: null, weight: 0.35 },
+          windSpeed: { value: isNum(h.windSpeed) ? h.windSpeed : null, score: null, weight: 0.15 }
+        }
+      };
+    }
+    const inv1 = layer.lo.t - h.surfaceTemp;
     const inversionScore = inv1 > 0 ? clampLerp(inv1, 0, 50, 6, 100) : clampLerp(inv1, -6, 0, 0, 50);
     const visibilityScore = triangleScore(h.visibility, 100, 500, 3000, 6000);
     const windScore = h.windSpeed <= 2 ? 100 : h.windSpeed >= 5 ? 0 : clampLerp(h.windSpeed, 2, 100, 5, 0);
@@ -163,12 +239,22 @@
       score: Math.round(score),
       alert: score > 75,
       breakdown: {
-        inversion: { value: inv1, score: Math.round(inversionScore), weight: 0.5 },
+        inversion: { value: inv1, score: Math.round(inversionScore), weight: 0.5, from: '地面', to: `${layer.base}hPa` },
         visibility: { value: h.visibility, score: Math.round(visibilityScore), weight: 0.35 },
         windSpeed: { value: h.windSpeed, score: Math.round(windScore), weight: 0.15 }
       }
     };
   }
+
+  // 各指數「一定要有」的輸入欄位：ensemble 成員缺這些欄位(null)時不列入信心區間計算（見 ensembleConfidence）
+  fieryGlowScore.requires = ['cloudLow', 'cloudMid', 'cloudHigh', 'humidity', 'visibility'];
+  starsScore.requires = ['cloudLow', 'cloudMid', 'cloudHigh', 'humidity'];
+  blueHourScore.requires = ['cloudLow', 'cloudMid', 'cloudHigh', 'humidity', 'visibility'];
+  liuliGuangScore.requires = ['surfaceTemp', 'visibility', 'windSpeed'];
+  const FIELD_LABEL = {
+    cloudLow: '低雲量', cloudMid: '中雲量', cloudHigh: '高雲量', humidity: '地面濕度', visibility: '能見度',
+    surfaceTemp: '地面氣溫', windSpeed: '地表風速', upperLevels: '高空氣壓層（925／850hPa 等）'
+  };
 
   // 雲海高度估算：LCL(凝結高度) ≈ 125 × (地面氣溫 − 露點溫度)公尺，氣象學經典估算式(Espy's equation)。
   // 回傳離地高度(AGL)；要換算成海拔(AMSL)需再加地面高程，見cloudBaseAMSL。
@@ -190,6 +276,21 @@
     'temperature_925hPa', 'relativehumidity_925hPa',
     'windspeed_10m'
   ];
+  // 2026-10-19：逆溫要知道各氣壓層的實際高度，才判斷得出「這一層在機位上方還是地底下」。
+  // 只加在主預報（ensemble 的 icon_seamless 這些欄位全回 null，加了只是白傳）。
+  const OPEN_METEO_LEVELS = [
+    'temperature_700hPa', 'relativehumidity_700hPa',
+    'temperature_600hPa', 'relativehumidity_600hPa', 'temperature_500hPa',
+    'geopotential_height_925hPa', 'geopotential_height_850hPa', 'geopotential_height_700hPa',
+    'geopotential_height_600hPa', 'geopotential_height_500hPa'
+  ];
+  const FORECAST_HOURLY = OPEN_METEO_HOURLY.concat(OPEN_METEO_LEVELS);
+  // API 回應的 elevation＝temperature_2m 對應的地面高度（Open-Meteo 依 90m DEM 降尺度），
+  // 掛到 hourly 上讓 buildH 拿得到（逆溫要比較的是「這個地面」上方的氣壓層）
+  function tagElevation(data) {
+    if (data && data.hourly && Number.isFinite(data.elevation)) data.hourly.surface_elevation = data.elevation;
+    return data;
+  }
 
   // 2026-10-12：同一次開啟內的預報快取（30 分鐘）。今日推薦／地圖原本每個景點各打一次
   // Open-Meteo（56 個同時送出），常被 429 限流→失敗請求＋console 錯誤；改成多點一次查
@@ -206,10 +307,10 @@
   async function fetchHourlyWeather(lat, lng, days = 4) {
     const cached = hourlyCached(lat, lng, days);
     if (cached) return cached;
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=${days}&timezone=auto`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=${FORECAST_HOURLY.join(',')}&forecast_days=${days}&timezone=auto`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Open-Meteo API 錯誤：${res.status}`);
-    const data = await res.json();
+    const data = tagElevation(await res.json());
     hourlyCache.set(hourlyKey(lat, lng, days), { t: Date.now(), data });
     return data;
   }
@@ -224,7 +325,7 @@
       const idx = todo.slice(k, k + BATCH);
       const lats = idx.map((i) => points[i].lat).join(',');
       const lngs = idx.map((i) => points[i].lng).join(',');
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=${days}&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=${FORECAST_HOURLY.join(',')}&forecast_days=${days}&timezone=auto`;
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Open-Meteo API 錯誤：${res.status}`);
@@ -233,6 +334,7 @@
         idx.forEach((i, j) => {
           const data = arr[j];
           if (!data || !data.hourly) return;
+          tagElevation(data);
           out[i] = data;
           hourlyCache.set(hourlyKey(points[i].lat, points[i].lng, days), { t: Date.now(), data });
         });
@@ -250,7 +352,7 @@
     const url = `https://ensemble-api.open-meteo.com/v1/ensemble?latitude=${lat}&longitude=${lng}&hourly=${OPEN_METEO_HOURLY.join(',')}&forecast_days=${days}&models=icon_seamless`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Open-Meteo Ensemble API 錯誤：${res.status}`);
-    return res.json();
+    return tagElevation(await res.json());
   }
 
   function ensembleMemberCount(hourly) {
@@ -261,7 +363,13 @@
 
   function hAtMember(hourly, index, member) {
     const suffix = member === 0 ? '' : `_member${String(member).padStart(2, '0')}`;
-    const get = (name) => hourly[name + suffix][index];
+    // 2026-10-19：欄位不存在或值是 null 一律回 null（舊版 null 直接進公式：null<=10 為真→低雲滿分，信心區間是假的）
+    const get = (name) => {
+      const arr = hourly[name + suffix];
+      const v = arr ? arr[index] : null;
+      return isNum(v) ? v : null;
+    };
+    const wind = get('windspeed_10m');
     return {
       cloudLow: get('cloudcover_low'),
       cloudMid: get('cloudcover_mid'),
@@ -273,7 +381,9 @@
       upperTemp: get('temperature_925hPa'),
       upperTemp850: get('temperature_850hPa'),
       upperHumidity: get('relativehumidity_925hPa'),
-      windSpeed: get('windspeed_10m') / 3.6,
+      windSpeed: wind === null ? null : wind / 3.6,
+      surfaceElevation: isNum(hourly.surface_elevation) ? hourly.surface_elevation : undefined,
+      levels: levelsAt(hourly, [index], suffix),
       // 月相不受天氣模式影響，各成員共用同一個值，只是讓ensemble score計算跟
       // 真正顯示的分數(也含月相)口徑一致，不會系統性偏移confidence區間
       moonIllumination: window.SunCalc.getMoonIllumination(new Date(hourly.time[index])).fraction
@@ -282,19 +392,40 @@
 
   // scoreFn是fieryGlowScore/seaOfCloudsScore/starsScore其中一個，
   // 回傳80%成員落在的分數區間(p10~p90)，區間越窄代表模式間越有共識
+  //
+  // 2026-10-19 v0.19（老闆裁示）：缺資料的成員不列入。實測 icon_seamless 對雲量／能見度／925・850hPa
+  // 全部回 null，舊版照算（null<=10 為真→低雲滿分、null 當 0），畫面上的「模型信心」其實是假的。
+  // 現在：成員缺 scoreFn.requires 任一欄位、或公式本身判「無法判斷」(score:null) 就跳過；
+  // 能用的成員不到一半（且至少 5 組）就回傳 { unavailable:true, missing:[缺哪些] }，畫面註明「無法計算」。
+  const ENSEMBLE_MIN_MEMBERS = 5;
   function ensembleConfidence(hourly, index, scoreFn) {
     const n = ensembleMemberCount(hourly);
     if (!n) return null;
     const scores = [];
+    const missing = new Set();
     for (let m = 1; m <= n; m++) {
-      scores.push(scoreFn(hAtMember(hourly, index, m)).score);
+      const h = hAtMember(hourly, index, m);
+      const lack = (scoreFn.requires || []).filter((k) => !isNum(h[k]));
+      if (lack.length) { lack.forEach((k) => missing.add(k)); continue; }
+      const r = scoreFn(h);
+      if (!isNum(r.score)) { missing.add('upperLevels'); continue; }
+      scores.push(r.score);
+    }
+    if (scores.length < Math.max(ENSEMBLE_MIN_MEMBERS, Math.ceil(n / 2))) {
+      return {
+        unavailable: true,
+        memberCount: n,
+        used: scores.length,
+        missing: [...missing],
+        missingLabels: [...missing].map((k) => FIELD_LABEL[k] || k)
+      };
     }
     scores.sort((a, b) => a - b);
     const p10 = scores[Math.floor(scores.length * 0.1)];
     const p90 = scores[Math.min(scores.length - 1, Math.ceil(scores.length * 0.9))];
     const spread = p90 - p10;
     const level = spread <= 20 ? '高' : spread <= 40 ? '中等' : '低';
-    return { p10, p90, spread, level, memberCount: n };
+    return { p10, p90, spread, level, memberCount: n, used: scores.length, skipped: n - scores.length };
   }
 
   function nearestHourIndex(hourly, date) {
@@ -310,6 +441,24 @@
 
   // refDate：用來算月相(getMoonIllumination只吃日期，跟天氣資料無關)。
   // 沒傳refDate時moonIllumination給undefined，starsScore會當作0(新月)處理。
+  // 各氣壓層在時間窗內的平均溫度／濕度／高度；該層欄位不存在就不放（舊資料、測試資料走標準大氣高度）
+  function levelsAt(hourly, indices, suffix = '') {
+    const mean = (name) => {
+      const arr = hourly[name + suffix];
+      if (!arr) return undefined;
+      const vals = indices.map((i) => arr[i]);
+      return vals.every(isNum) ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    };
+    if (!hourly['geopotential_height_925hPa' + suffix] && !hourly['temperature_700hPa' + suffix]) return undefined;
+    const out = {};
+    PRESSURE_LEVELS.forEach((p) => {
+      const t = mean(`temperature_${p}hPa`);
+      if (t === undefined) return;
+      out[p] = { t, rh: mean(`relativehumidity_${p}hPa`), z: mean(`geopotential_height_${p}hPa`) };
+    });
+    return out;
+  }
+
   function buildH(hourly, indices, refDate) {
     const avg = (arr) => indices.reduce((s, i) => s + arr[i], 0) / indices.length;
     return {
@@ -324,6 +473,8 @@
       upperTemp850: avg(hourly.temperature_850hPa),
       upperHumidity: avg(hourly.relativehumidity_925hPa),
       windSpeed: avg(hourly.windspeed_10m) / 3.6, // km/h -> m/s，PRD門檻(4m/s)用m/s
+      surfaceElevation: isNum(hourly.surface_elevation) ? hourly.surface_elevation : undefined,
+      levels: levelsAt(hourly, indices),
       moonIllumination: refDate ? window.SunCalc.getMoonIllumination(refDate).fraction : undefined
     };
   }
@@ -394,6 +545,9 @@
     fetchHourlyWeatherBatch,
     fetchEnsembleWeather,
     ensembleConfidence,
+    pickInversionLayer,
+    BLUE_HOUR_DEG,
+    GOLDEN_HOUR_DEG,
     nearestHourIndex,
     hourAt,
     hourAtWindow,
