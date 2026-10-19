@@ -329,6 +329,173 @@
 <meta name="twitter:description" content="黃金時刻倒數、火燒雲與雲海機率預測、觀星與琉璃光指數，還有攝影熱點地圖。">
 <meta name="twitter:image" content="https://lightcatcher.pages.dev/og-lightcatcher.png?v=20260908">
 <meta name="twitter:image:alt" content="光影獵人 — 黃金時刻與大景預測">
+<!--RL_SPLASH_HEAD_START-->
+<script>
+/* 開場畫面 C 版（光影獵人）：母版在 04_管理工具\開場畫面，用 inject.py 重新注入，不要在這裡手改 */
+window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2B","cooldownDays":null,"installedOnly":true,"homeHashes":[],"total":800,"fade":300,"reduceHold":600,"c":{"sel":"header.rl-appbar .rl-mark","src":""},"css":"/* RL_SPLASH C 極簡版：品牌深藍底＋頁首同一張山形＋App 名＋金色短線＋稜線署名 */\n#rl-splash{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483000;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;\n  -webkit-user-select:none;user-select:none;contain:strict}\n#rl-splash.rl-out{pointer-events:none}\n#rl-splash.rl-sp-c{background:var(--rl-sp-bg,#141E2B);color:#EEF3F6;display:flex;align-items:center;justify-content:center}\n#rl-splash .c-box{text-align:center;margin-top:-4vh;padding:0 16px}\n#rl-splash .c-mark{display:block;width:112px;height:auto;max-height:80px;object-fit:contain;margin:0 auto}\n#rl-splash .c-name{margin:18px 0 0;font:700 26px/1.3 var(--rl-sp-namefont,\"Noto Serif TC\",\"Source Han Serif TC\",\"PMingLiU\",serif);letter-spacing:.16em}\n#rl-splash .c-rule{width:64px;height:2px;margin:14px auto 0;border-radius:2px;background:#DE9A45}\n#rl-splash .c-by{margin:12px 0 0;font:500 12px/1.4 \"Segoe UI\",system-ui,sans-serif;letter-spacing:.24em;color:rgba(238,243,246,.6)}\n#rl-splash{--rl-sp-bg:#141E2B}\n"};
+/* RL_SPLASH 頭段（放在 head 結尾前；inject.py 會在前面接上 window.RL_SPLASH = {設定, css}）
+   ①決定這次要不要出現 ②要出現就在第一次繪製前把開場層掛上去（掛在 html 底下、body 之前，不必等 body）
+   ③掛上「點／滑／按鍵就跳過」與收尾計時。B 版的海報、金線、光點由 body 結尾前的主程式（splash-core.js）等 App 首頁海報畫好再補上。
+   規則與 README.md 一致；母版在 04_管理工具\開場畫面，不要在 App 裡手改。 */
+(function () {
+  'use strict';
+  var C = window.RL_SPLASH;
+  if (!C || C.state) return;
+  var S = C.state = { on: false };
+  var d = document.documentElement;
+  var q;
+  try { q = new URLSearchParams(location.search); } catch (e) { return; }
+  var force = q.has('splash');                      // 驗收用：強制出現（仍受時間上限）
+  S.freeze = force && q.has('t') ? Number(q.get('t')) : null;   // 截圖用：凍結在第 t 毫秒
+  S.hold = force && q.has('hold');                  // 測試用：動畫照跑但不自動收（只能點／按鍵跳過），驗「跳過」不受測試機快慢影響
+  var V = String(C.variant).toUpperCase();
+
+  function deepLink() {
+    var h = location.hash.replace(/^#!?\/?/, '');
+    if (h && (C.homeHashes || []).indexOf(h) < 0) return true;      // 分享某條路線／某個分頁過來
+    var ok = /^(utm_[a-z]+|fbclid|gclid|ref|source|from|pwa|v)$/i, bad = false;
+    q.forEach(function (v, k) { if (!ok.test(k)) bad = true; });    // ?peak=… 之類的深層網址
+    return bad;
+  }
+  function installed() {
+    try {
+      return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches ||
+        matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: minimal-ui)').matches;
+    } catch (e) { return false; }
+  }
+  function decide() {
+    if (q.has('nosplash')) return false;
+    if (force) return true;
+    if (deepLink()) return false;
+    if (document.visibilityState === 'hidden' || document.visibilityState === 'prerender') return false;
+    if (C.installedOnly && !installed()) return false;
+    var key = 'rl_splash_v1:' + C.app, last;
+    try {
+      localStorage.setItem(key + ':probe', '1');                   // 寫得進去才算有 localStorage
+      if (localStorage.getItem(key + ':probe') !== '1') return false;
+      localStorage.removeItem(key + ':probe');
+      last = Number(localStorage.getItem(key)) || 0;
+    } catch (e) { return false; }                                  // 無痕／被擋：寧可不出現
+    if (last && (C.cooldownDays == null || C.cooldownDays < 0)) return false;   // 只出現一次（首次安裝限定）
+    return !last || Date.now() - last >= C.cooldownDays * 864e5;
+  }
+  if (!decide()) return;
+  if (!force) { try { localStorage.setItem('rl_splash_v1:' + C.app, String(Date.now())); } catch (e) { return; } }
+
+  S.on = true;
+  S.t0 = Date.now();
+  S.total = Math.min(Number(C.total) || 1500, 1500);              // 開場動畫本身最長 1.5 秒，設定寫再大也一樣
+  S.fade = Math.min(Number(C.fade) || 400, S.total);
+  S.cap = Math.min(Number(C.readyMax) || 4000, 4000);              // 保險上限：主程式沒跑到、App 卡住，也一定收
+  S.reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var st = document.createElement('style');
+  st.id = 'rl-splash-css';
+  st.textContent = (C.css || '') + (S.reduce ? '#rl-splash,#rl-splash *{animation:none!important;transition:none!important}' : '');
+  (document.head || d).appendChild(st);
+
+  var el = document.createElement('div');
+  el.id = 'rl-splash';
+  el.className = 'rl-sp-' + V.toLowerCase();
+  el.setAttribute('aria-hidden', 'true');                         // 讀屏直接進 App，不唸開場
+  // 不用 inert：inert 會讓點擊穿透，開場中的那一下就會按到底下看不到的按鈕
+  var by = esc(C.by || '稜線 · by Lucas'), nm = esc(C.name);
+  if (V === 'C') {
+    el.innerHTML = '<div class="c-box">' + (C.c && C.c.src ? '<img class="c-mark" alt="" decoding="async" src="' + esc(C.c.src) + '">' : '') +
+      '<p class="c-name">' + nm + '</p><div class="c-rule"></div><p class="c-by">' + by + '</p></div>';
+  } else {
+    el.innerHTML = '<div class="b-band"></div><div class="b-foot"><p class="b-name">' + nm + '</p><div class="b-rule"></div>' +
+      '<p class="b-by">' + by + '</p><span class="b-skip">' + esc(C.skipText || '直接進入首頁 →') + '</span></div>';
+  }
+  var mk = el.querySelector('.c-mark');
+  if (mk) mk.onerror = function () { if (mk.parentNode) mk.parentNode.removeChild(mk); };   // 圖壞了只留字，不等圖
+  d.appendChild(el);                                               // body 還沒出現也能掛；之後 body 會排在它後面
+  d.classList.add('rl-splash-on');
+  S.el = el;
+
+  function anim(n, kf, dur, delay) {
+    if (S.reduce || !n || !n.animate) return null;
+    return n.animate(kf, { duration: Math.max(1, dur), delay: Math.max(0, delay || 0), easing: 'ease-out', fill: 'both' });
+  }
+  S.anim = anim;
+  if (V === 'C') anim(el.querySelector('.c-box'), [{ opacity: 0, transform: 'scale(.97)' }, { opacity: 1, transform: 'none' }], 300, 0);
+  else {
+    anim(el.querySelector('.b-name'), [{ opacity: 0, translate: '0 10px' }, { opacity: 1, translate: '0 0' }], 500, 60);
+    anim(el.querySelector('.b-rule'), [{ opacity: 0, transform: 'scaleX(0)' }, { opacity: 1, transform: 'scaleX(1)' }], 600, 160);
+    anim(el.querySelector('.b-by'), [{ opacity: 0, translate: '0 10px' }, { opacity: 1, translate: '0 0' }], 500, 220);
+    anim(el.querySelector('.b-skip'), [{ opacity: 0 }, { opacity: 1 }], 500, 320);
+  }
+
+  var EV = ['pointerdown', 'keydown', 'wheel', 'touchmove'], timers = [], fadeA = null;
+  S.end = function () {                                           // 收掉全部
+    if (!S.on) return;
+    S.on = false;
+    timers.forEach(clearTimeout);
+    if (S.cleanup) try { S.cleanup(); } catch (e) {}
+    if (el.parentNode) el.parentNode.removeChild(el);
+    if (st.parentNode) st.parentNode.removeChild(st);
+    d.classList.remove('rl-splash-on');
+    S.el = null;
+    for (var i = 0; i < EV.length; i++) window.removeEventListener(EV[i], onSkip, true);
+  };
+  function out() {                                                 // 從這一刻起點擊穿透到 App
+    el.classList.add('rl-out');
+    if (S.realign) try { S.realign(); } catch (e) {}
+  }
+  // 排收尾：endAt（Date 毫秒）前 fade 毫秒開始淡出。淡出用 Web Animations（在合成器上跑，App 主執行緒忙也準時）
+  S.plan = function (endAt, fade, keepPointer) {
+    if (!S.on || S.freeze != null || (S.hold && !keepPointer)) return;
+    fade = fade == null ? S.fade : fade;
+    timers.forEach(clearTimeout); timers = [];
+    if (fadeA) { try { fadeA.cancel(); } catch (e) {} fadeA = null; }
+    var now = Date.now(), wait = Math.max(0, endAt - fade - now);
+    if (!el.animate) {
+      timers.push(setTimeout(S.end, Math.max(0, endAt - now)));
+    } else if (S.reduce || fade <= 0) {                         // 減少動態：不淡出，時間到直接消失（一樣交給合成器，主執行緒忙也準時）
+      fadeA = el.animate([{ opacity: 1 }, { opacity: 0 }], { delay: Math.max(0, endAt - now), duration: 1, fill: 'forwards' });
+      fadeA.onfinish = S.end;
+      timers.push(setTimeout(out, Math.max(0, endAt - now)));
+    } else {
+      fadeA = el.animate([{ opacity: 1 }, { opacity: 0 }], { delay: wait, duration: fade, easing: 'ease-in-out', fill: 'forwards' });
+      fadeA.onfinish = S.end;
+      if (!keepPointer) timers.push(setTimeout(out, wait));
+    }
+    timers.push(setTimeout(S.end, Math.max(0, endAt - now) + 80));
+    S.endAt = endAt;
+  };
+  // 跳過：150ms 淡出；這段期間開場層照樣接住點擊，用來跳過的那一下（含之後補發的 click）不會按到底下的按鈕
+  var swallowUntil = 0;
+  function onClick(e) {
+    if (Date.now() < swallowUntil) { swallowUntil = 0; e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); }
+  }
+  S.skip = function () {
+    if (!S.on || S.skipped) return;
+    S.skipped = true;
+    if (S.freeze != null) { S.end(); return; }
+    el.classList.remove('rl-out');
+    S.plan(Date.now() + 150, 150, true);                           // 跳過的淡出期間不穿透
+  };
+  function onSkip(e) {
+    if (!S.on) return;
+    if (e.type === 'pointerdown' || e.type === 'keydown') {
+      swallowUntil = Date.now() + 700;
+      window.addEventListener('click', onClick, true);
+      setTimeout(function () { window.removeEventListener('click', onClick, true); }, 1500);
+    }
+    if (e.type === 'pointerdown' && e.cancelable && S.el && S.el.contains(e.target)) e.preventDefault();
+    S.skip();
+  }
+  for (var i = 0; i < EV.length; i++) window.addEventListener(EV[i], onSkip, { capture: true, passive: EV[i] !== 'pointerdown' });
+
+  if (S.freeze == null) {
+    if (V === 'C') S.plan(S.t0 + S.total);
+    else S.plan(S.t0 + S.cap);                                     // B：先等主程式補上海報（它會改排時間）；沒等到就照保險上限收
+    if (S.reduce && V === 'C') S.plan(S.t0 + Math.min(Number(C.reduceHold) || 600, S.total), 0);
+  }
+})();
+</script>
+<!--RL_SPLASH_HEAD_END-->
 </head>
 <body>
 
@@ -339,7 +506,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.20</span>
+  <span class="ver">v0.21</span>
 </header>
 
 <nav id="nav">
@@ -2102,5 +2269,242 @@
 })();
 </script>
 <!--REPORT_BTN_END-->
+<!--RL_SPLASH_START-->
+<script>
+/* 開場畫面 C 版（光影獵人）：母版在 04_管理工具\開場畫面，用 inject.py 重新注入，不要在這裡手改 */
+/* RL_SPLASH 主程式（放在 body 結尾前）
+   頭段（splash-head.js）已經決定要出現、在第一次繪製前掛好開場層（底色＋App 名＋署名），也排好了收尾。
+   這裡補上需要 App 內容的部分：
+   B App 海報版：等 trailskin 把首頁海報畫好，抄真的那張（同位置、同大小、主題 CSS 照套），金線沿稜線劃過、峰頂光點依序亮起，
+                 淡出時跟首頁海報重疊；然後重排收尾時間。
+   C 極簡版：補上頁首同一張山形（設定 c.sel 指到頁首的圖時）。
+   母版在 04_管理工具\開場畫面，不要在 App 裡手改。 */
+(function () {
+  'use strict';
+  var C = window.RL_SPLASH, S = C && C.state;
+  if (!S || !S.on || !S.el) return;
+  var d = document.documentElement, el = S.el, anim = S.anim;
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var V = String(C.variant).toUpperCase();
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function freezeAll() {                                    // 截圖模式：整條時間軸停在第 t 毫秒（從開場掛上那一刻算）
+    var t = Math.max(0, S.freeze);
+    if (!S.reduce && el.animate) el.animate([{ opacity: 1 }, { opacity: 0 }], { delay: S.planEnd - S.fade, duration: S.fade, easing: 'ease-in-out', fill: 'both' });
+    el.getAnimations({ subtree: true }).forEach(function (a) { a.pause(); a.currentTime = t; });
+  }
+
+  /* ---------- B：App 海報版 ---------- */
+  // 取海報 svg 裡某一條 path 的「上緣」（稜線），回傳 [[x,y],...]（path 自己的座標）
+  function ridgePoints(p) {
+    var dd = p.getAttribute('d') || '', pts = [], x = 0, y = 0, sx = 0, sy = 0, ok = true;
+    var tok = dd.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [], i = 0, cmd = '';
+    function num() { return Number(tok[i++]); }
+    while (i < tok.length && ok) {
+      if (/[a-zA-Z]/.test(tok[i])) cmd = tok[i++];
+      switch (cmd) {
+        case 'M': x = num(); y = num(); sx = x; sy = y; pts.push([x, y]); cmd = 'L'; break;
+        case 'm': x += num(); y += num(); sx = x; sy = y; pts.push([x, y]); cmd = 'l'; break;
+        case 'L': x = num(); y = num(); pts.push([x, y]); break;
+        case 'l': x += num(); y += num(); pts.push([x, y]); break;
+        case 'H': x = num(); pts.push([x, y]); break;
+        case 'h': x += num(); pts.push([x, y]); break;
+        case 'V': y = num(); pts.push([x, y]); break;
+        case 'v': y += num(); pts.push([x, y]); break;
+        case 'Z': case 'z': x = sx; y = sy; i = tok.length; break;   // 只取第一個子路徑
+        default: ok = false;                                           // 有曲線：改用取樣
+      }
+    }
+    if (!ok || pts.length < 3) {
+      pts = [];
+      try {
+        var L = p.getTotalLength(), N = 260;
+        for (var k = 0; k <= N; k++) { var q = p.getPointAtLength(L * k / N); pts.push([q.x, q.y]); }
+      } catch (e) { return null; }
+    }
+    var maxY = -1e9;
+    pts.forEach(function (a) { if (a[1] > maxY) maxY = a[1]; });
+    // 稜線＝由左往右走的那一段：丟掉貼底的點（剪影的底邊）；遇到往回走（x 變小）或垂直往下（剪影的側邊）就停
+    var out = [];
+    for (var n = 0; n < pts.length; n++) {
+      var a = pts[n], prev = out[out.length - 1];
+      var vdrop = prev && Math.abs(a[0] - prev[0]) < 0.01 && a[1] > prev[1];
+      if (a[1] >= maxY - 0.5) {                            // 貼底的點：單獨一座山的山腳（斜線接到底）要留，剪影的底邊／垂直側邊不要
+        if (out.length) { if (!vdrop && a[0] > prev[0]) out.push(a); break; }
+        var nx = pts[n + 1];
+        if (nx && nx[0] > a[0] + 0.01 && nx[1] < a[1]) out.push(a);
+        continue;
+      }
+      if (prev && (a[0] < prev[0] - 0.01 || vdrop)) break;
+      out.push(a);
+    }
+    return out.length >= 2 ? out : null;
+  }
+  function peaksOf(pts, n) {                                // 峰頂＝比左右兩點都高（y 較小）的點，取最高的 n 個、左右至少隔 18
+    var cand = [];
+    for (var i = 1; i < pts.length - 1; i++) {
+      var y = pts[i][1], a = pts[i - 1][1], b = pts[i + 1][1];
+      if ((y <= a && y < b) || (y < a && y <= b)) cand.push(i);
+    }
+    var pick = [];
+    cand.sort(function (a, b) { return pts[a][1] - pts[b][1]; }).forEach(function (i) {
+      if (pick.length >= n) return;
+      for (var k = 0; k < pick.length; k++) if (Math.abs(pts[pick[k]][0] - pts[i][0]) < 18) return;
+      pick.push(i);
+    });
+    return pick.sort(function (a, b) { return a - b; });
+  }
+  function buildB() {
+    var B = C.b || {};
+    var TS = window.TRAILSKIN, P = TS && TS.hero && TS.hero.poster;
+    var real = document.querySelector(B.posterSel || '.ts-poster'), r = real && real.getBoundingClientRect();
+    var vw = d.clientWidth || innerWidth, vh = innerHeight;
+    var usable = !!(r && r.height > 80 && r.width > 120 && r.top < vh * 0.6 && r.bottom > 0);
+    var hd = document.querySelector(B.headerSel || 'header.rl-appbar'), hr = hd && hd.getBoundingClientRect();
+    var card = null, i;
+    if (usable) {
+      card = real.cloneNode(true);                          // 抄真的那張：主題 CSS 全部照套，位置自然一致
+      var drop = card.querySelectorAll('.ts-cta,.ts-hero-title,a,button,input,select,textarea,iframe,video,script');
+      for (i = 0; i < drop.length; i++) if (drop[i].parentNode) drop[i].parentNode.removeChild(drop[i]);
+      var ids = card.querySelectorAll('[id]');
+      for (i = 0; i < ids.length; i++) if (!ids[i].closest('svg')) ids[i].removeAttribute('id');
+      card.removeAttribute('id');
+    } else if (P) {                                         // 首頁海報不在畫面上：照 TRAILSKIN 設定自己畫一張（同一套 class）
+      card = document.createElement('section');
+      card.className = 'ts-poster ts-p-' + (P.layout || 'classic');
+      card.innerHTML = (P.sun ? '<span class="ts-sun"></span>' : '') + (P.tag ? '<span class="ts-ptag">' + esc(P.tag) + '</span>' : '') +
+        '<div class="ts-art">' + (P.svg || '') + '</div><div class="ts-pcopy"><div class="ts-big">' + (P.big || '') + '</div></div>' +
+        (P.band ? '<div class="ts-band"><b class="ts-bandbig">' + esc(P.band) + '</b></div>' : '');
+    }
+    var now = Date.now();
+    var since = S.freeze != null ? 0 : now - S.t0;          // 頭段掛上到現在過了多久（大檔 App 解析時間）
+    // 收尾時間：開場動畫本身最長 S.total；App 載入比較久時，等海報畫好再跑「金線＋淡出」afterReady 毫秒；保險上限 S.cap
+    var after = Math.min(Number(C.afterReady) || 1100, S.total);
+    var endRel = Math.min(Math.max(S.total, since + after), S.cap);
+    var avail = endRel - since - S.fade;                    // 淡出前還有多久可以跑金線
+    var k = avail >= 700 ? Math.min(1, avail / 1000) : 0;   // 時間不夠就直接給完成狀態
+    S.planEnd = endRel - since;
+
+    var top = usable ? r.top : (hr && hr.bottom > 0 ? hr.bottom : 56);
+    if (hr && hr.bottom > 0) {                              // 頁首那一條：用頁首自己的底色，淡出時不跳色
+      var bandTop = document.createElement('div');
+      bandTop.className = 'b-top';
+      bandTop.style.height = Math.round(hr.bottom) + 'px';
+      var hb = getComputedStyle(hd).backgroundColor;
+      if (hb && !/rgba\(0, 0, 0, 0\)|transparent/.test(hb)) bandTop.style.background = hb;
+      el.insertBefore(bandTop, el.firstChild);
+      anim(bandTop, [{ opacity: 0 }, { opacity: 1 }], 200, 0);
+    }
+    var band = el.querySelector('.b-band'), foot = el.querySelector('.b-foot');
+    if (card) {
+      card.classList.add('rl-sp-card');
+      card.setAttribute('aria-hidden', 'true');
+      el.insertBefore(card, band);
+    }
+    function place() {
+      if (!card) return 0;
+      var rr = usable ? real.getBoundingClientRect() : null, st = card.style;
+      st.setProperty('position', 'absolute', 'important');
+      st.setProperty('margin', '0', 'important');
+      st.setProperty('left', (rr ? rr.left : 0) + 'px', 'important');
+      st.setProperty('top', (rr ? rr.top : top) + 'px', 'important');
+      st.setProperty('width', (rr ? rr.width : vw) + 'px', 'important');
+      if (rr) { st.setProperty('height', rr.height + 'px', 'important'); st.setProperty('min-height', '0', 'important'); }
+      st.setProperty('transform', 'none', 'important');
+      var cr = card.getBoundingClientRect();
+      return cr.bottom;
+    }
+    var cardBottom = place() || (top + 470);
+    S.realign = usable ? place : null;                     // 淡出前再對一次（App 這段時間可能重排）
+    if (usable && window.ResizeObserver) {                 // 首頁海報之後才長高／移位（字型載入、資料補上）就跟著對齊
+      var ro = new ResizeObserver(function () { if (!S.on) return; place(); if (S.placeDots) S.placeDots(); });
+      ro.observe(real);
+      var prevClean = S.cleanup;
+      S.cleanup = function () { try { ro.disconnect(); } catch (e) {} if (prevClean) prevClean(); };
+    }
+    // 底下深色帶：墊在海報下緣後面；螢幕太矮、海報壓到 App 名時改蓋在海報上
+    var footTop = foot.getBoundingClientRect().top;
+    if (footTop < cardBottom + 8) { band.classList.add('b-over'); band.style.top = (footTop - 28) + 'px'; }
+    else band.style.top = Math.max(0, cardBottom - 40) + 'px';
+    if (card) anim(card, [{ opacity: 0 }, { opacity: 1 }], 220, 0);
+
+    // 金線：沿設定指定的那一條山的稜線
+    var svg = card && card.querySelector('.ts-art svg');
+    var paths = svg ? svg.querySelectorAll('path') : [];
+    var src = paths[B.ridge == null ? Math.floor(paths.length / 2) : B.ridge];
+    var pts = src ? ridgePoints(src) : null;
+    if (pts) {
+      var line = document.createElementNS(SVGNS, 'path');
+      line.setAttribute('d', 'M' + pts.map(function (a) { return a[0].toFixed(1) + ' ' + a[1].toFixed(1); }).join(' L'));
+      line.setAttribute('class', 'b-line');
+      line.setAttribute('pathLength', '1');
+      line.setAttribute('vector-effect', 'non-scaling-stroke');
+      if (src.getAttribute('transform')) line.setAttribute('transform', src.getAttribute('transform'));
+      line.style.stroke = B.gold || '#FFD27A';
+      // 金線放哪一層：lineBefore＝插在第幾條 path 所在的最外層群組前面（那條以後的前景會擋住金線，又不會被 Fuji 群組自己的透明度／濾鏡壓暗）；
+      // lineBelow＝緊接在稜線那條之後；都沒設＝畫在整張 svg 最上層
+      var bef = B.lineBefore != null ? paths[B.lineBefore] : null;
+      while (bef && bef.parentNode && bef.parentNode !== svg) bef = bef.parentNode;
+      if (bef && bef.parentNode === svg) svg.insertBefore(line, bef);
+      else if (B.lineBelow) src.parentNode.insertBefore(line, src.nextSibling);
+      else svg.appendChild(line);
+      var segs = [0], tot = 0;
+      for (var s2 = 1; s2 < pts.length; s2++) { tot += Math.hypot(pts[s2][0] - pts[s2 - 1][0], pts[s2][1] - pts[s2 - 1][1]); segs.push(tot); }
+      var DRAW0 = 120 * k, DRAW = 700 * k;
+      if (k && !S.reduce) {
+        anim(line, [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], DRAW, DRAW0);
+        anim(line, [{ opacity: 1 }, { opacity: 0.6 }], 300 * k, DRAW0 + DRAW + 80 * k);
+      } else line.classList.add('b-done');
+      var m = src.getScreenCTM ? src.getScreenCTM() : null, pk = peaksOf(pts, B.dots || 4), dots = [];
+      function at(idx) { var sp = svg.createSVGPoint(); sp.x = pts[idx][0]; sp.y = pts[idx][1]; return sp.matrixTransform(src.getScreenCTM()); }
+      S.placeDots = function () { dots.forEach(function (o) { var q = at(o.idx); o.el.style.left = q.x + 'px'; o.el.style.top = q.y + 'px'; }); };
+      if (m && svg.createSVGPoint) pk.forEach(function (idx) {
+        var q = at(idx);
+        if (q.x < -10 || q.x > vw + 10 || q.y < 0 || q.y > vh) return;
+        var dot = document.createElement('i');
+        dot.className = 'b-dot';
+        dot.style.left = q.x + 'px'; dot.style.top = q.y + 'px';
+        el.appendChild(dot);
+        dots.push({ el: dot, idx: idx });
+        var when = DRAW0 + DRAW * (tot ? segs[idx] / tot : 0);
+        if (k && !S.reduce) anim(dot, [{ opacity: 0, transform: 'translate(-50%,-50%) scale(.2)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1.7)', offset: 0.6 }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)' }], 340, Math.max(0, when - 40));
+        else dot.classList.add('b-done');
+      });
+    }
+    if (k && card) {
+      anim(card.querySelector('.ts-big'), [{ opacity: 0, translate: '0 10px' }, { opacity: 1, translate: '0 0' }], 450 * k, 0);
+      anim(card.querySelector('.ts-sun'), [{ opacity: 0.4, translate: '0 22px' }, { opacity: 1, translate: '0 0' }], 800 * k, 0);
+    }
+    if (S.freeze != null) { freezeAll(); return; }
+    if (S.reduce) S.plan(S.t0 + Math.min(Math.max(Number(C.reduceHold) || 900, since + 500), S.cap), 0);
+    else S.plan(S.t0 + endRel);
+  }
+
+  /* ---------- C：極簡版 ---------- */
+  function buildC() {
+    var X = C.c || {};
+    if (X.sel) {
+      var im = document.querySelector(X.sel), src = im && (im.currentSrc || im.src);
+      if (src) {
+        var box = el.querySelector('.c-box'), mk = el.querySelector('.c-mark');
+        if (!mk) { mk = document.createElement('img'); mk.className = 'c-mark'; mk.alt = ''; mk.decoding = 'async'; box.insertBefore(mk, box.firstChild); mk.onerror = function () { if (mk.parentNode) mk.parentNode.removeChild(mk); }; }
+        if (mk.getAttribute('src') !== src) mk.src = src;
+      }
+    }
+    if (S.freeze != null) { S.planEnd = S.total; freezeAll(); }
+  }
+
+  function go() {
+    if (!S.on || !S.el) return;
+    try { (V === 'C' ? buildC : buildB)(); }
+    catch (e) { try { console.warn('RL_SPLASH', e); } catch (x) {} }  // 出錯就維持頭段的畫面，照原本排好的時間收
+  }
+  if (V === 'C') go();
+  // B 要等 trailskin 把首頁海報畫好（它在 DOMContentLoaded 時畫）；多讓一拍，跟區塊先後順序無關
+  else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(go, 0); });
+  else setTimeout(go, 0);
+})();
+</script>
+<!--RL_SPLASH_END-->
 </body>
 </html>
