@@ -65,7 +65,7 @@
   .card h2{font-size:17px;margin:0 0 10px;color:var(--ink);font-weight:700}
   .spot-now{margin:0 0 8px;font-size:15px;font-weight:700;color:var(--ink)}
   .spot-now:empty{display:none}
-  #countdownCard,#locCard{scroll-margin-top:64px}
+  #countdownCard,#locCard,#dailyPicksCard{scroll-margin-top:64px}
   .sea-below{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:var(--snow);border:1px solid var(--line);font-size:14px;color:var(--ink)}
   /* 預測說明分頁是多行中文密排長句條列，瀏覽器預設line-height(~1.15-1.2)讀起來吃力，
      比照品牌footer(1.5-1.7)的密度補上 */
@@ -181,7 +181,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.17</span>
+  <span class="ver">v0.18</span>
 </header>
 
 <nav id="nav">
@@ -575,8 +575,13 @@
   }
 
   // 2026-10-13：選了景點後自動捲到結果，並讓手機返回鍵先回到「選地點」而不是直接離開 App
+  // 2026-10-19 修後重評：上一版只有景點 chip／手動設定會呼叫這裡，首屏「🔭 看今天哪裡最好拍」與
+  // 「今日推薦」的「查看預測」走的是 openPick()，沒寫歷史→看完預測按返回直接 about:blank。
+  // 現在所有「在首頁內展開預測」的入口都經過這裡；originId＝返回時要回到的那張卡（從哪裡選的就回哪裡）。
   let resultHistoryPushed = false;
-  function showResultForSpot() {
+  let resultOriginId = 'locCard';
+  function showResultForSpot(originId) {
+    resultOriginId = originId || 'locCard';
     const card = document.getElementById('countdownCard');
     if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
     if (!resultHistoryPushed && (location.hash === '' || location.hash === '#dashboard')) {
@@ -587,8 +592,11 @@
   window.addEventListener('popstate', (e) => {
     if (resultHistoryPushed && !(e.state && e.state.lcResult)) {
       resultHistoryPushed = false;
-      const loc = document.getElementById('locCard');
-      if (loc && (location.hash === '' || location.hash === '#dashboard')) loc.scrollIntoView({ block: 'start' });
+      const origin = document.getElementById(resultOriginId) || document.getElementById('locCard');
+      if (origin && (location.hash === '' || location.hash === '#dashboard')) {
+        // 等瀏覽器自己的捲動還原跑完再定位，避免被蓋掉
+        setTimeout(() => origin.scrollIntoView({ block: 'start' }), 0);
+      }
     }
   });
 
@@ -836,7 +844,8 @@
     clearChipSelection();
     setCoords(p.lat, p.lng, p.name);
     document.getElementById('btnWeather').click();
-    document.getElementById('countdownLabel').scrollIntoView({ behavior: 'smooth' });
+    // 捲到預測卡＋寫入瀏覽紀錄：返回鍵回到「今日推薦」卡（重選景點），不是直接離開 App
+    showResultForSpot('dailyPicksCard');
   }
 
   function renderDailyPicks(result) {
