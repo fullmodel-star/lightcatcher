@@ -157,6 +157,17 @@
   .secondary-details{margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
   .secondary-details summary{cursor:pointer;font-size:15px;color:var(--steel);font-weight:600}
   .secondary-details .score-card{opacity:.85}
+  /* 2026-10-19 v0.20（老闆裁示⑤ 限制說明收合）：技術說明改成一行摘要＋點開看全文，內文一字未刪。
+     ⚠ 安全／誠實紅線（無法判斷逆溫、未算光害、資料非實測）不收，留在外面。 */
+  .lc-fold{margin-top:6px}
+  .lc-fold > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;min-height:44px;font-size:14px;color:var(--steel)}
+  .lc-fold > summary::-webkit-details-marker{display:none}
+  .lc-fold > summary::after{content:"▾";margin-left:auto;flex:none;transition:transform .15s}
+  .lc-fold[open] > summary::after{transform:rotate(180deg)}
+  .lc-fold > p{margin:0 0 4px}
+  /* 2026-10-19 v0.20（老闆裁示② 窄手機）：≤400px 藏版號，讓 App 名與標語有位置、右側按鈕不被擠 */
+  .rl-appbar > div{min-width:0}
+  @media (max-width:400px){ .rl-appbar .ver{display:none} }
   .placeholder{padding:40px 16px;text-align:center;color:var(--steel)}
   .update-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bar-bg);color:var(--bar-fg);padding:12px 16px;align-items:center;justify-content:space-between;font-size:15px}
   .update-bar button{padding:6px 12px;font-size:15px}
@@ -328,7 +339,7 @@
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.19</span>
+  <span class="ver">v0.20</span>
 </header>
 
 <nav id="nav">
@@ -1476,7 +1487,8 @@
       return `<p class="unknown-note">⚠️ <b>無法判斷逆溫</b>：${esc(sea.reason || '缺資料')}。雲海指數最重要的因子（逆溫，佔 50%）算不出來，所以不給分數。</p>`;
     }
     if (sea.layer && sea.layer.base !== 925) {
-      return `<p class="note" style="margin:8px 0 0">地面約 ${sea.layer.groundM} m，925hPa 等較低的氣壓層在地面以下，逆溫改用機位上方的 ${sea.layer.base}hPa（約 ${sea.layer.baseHeightM} m）判斷。</p>`;
+      // 2026-10-19 v0.20 ⑤：一行摘要＋點開看全文（原句一字未改，放在 details 裡）
+      return `<details class="lc-fold" style="margin:8px 0 0"><summary>ℹ️ 高山景點：逆溫改用 ${sea.layer.base}hPa 判斷</summary><p class="note">地面約 ${sea.layer.groundM} m，925hPa 等較低的氣壓層在地面以下，逆溫改用機位上方的 ${sea.layer.base}hPa（約 ${sea.layer.baseHeightM} m）判斷。</p></details>`;
     }
     return '';
   }
@@ -1685,7 +1697,8 @@
         const conf = window.WeatherMath.ensembleConfidence(ens.hourly, idx, fn);
         // 2026-10-19 v0.19：缺資料的模式成員不列入；能用的不到一半就明講「無法計算」（舊版把 null 當滿分，顯示的信心是假的）
         if (conf && conf.unavailable) {
-          slot.innerHTML = `<p class="muted" style="margin-top:6px">🎯 模型信心：無法計算——${conf.memberCount} 組模式這次沒有提供「${conf.missingLabels.join('、')}」資料，缺資料的成員不列入計算，${conf.used ? `能用的只有 ${conf.used} 組（不到一半）` : '沒有任何一組能用'}，所以不顯示信心區間。這不代表信心高或低。</p>`;
+          // 2026-10-19 v0.20 ⑤：摘要一行（無法計算＋不代表信心高或低），為什麼收進 details，原句一字未改
+          slot.innerHTML = `<details class="lc-fold"><summary>🎯 模型信心：無法計算（不代表信心高或低）</summary><p class="muted">🎯 模型信心：無法計算——${conf.memberCount} 組模式這次沒有提供「${conf.missingLabels.join('、')}」資料，缺資料的成員不列入計算，${conf.used ? `能用的只有 ${conf.used} 組（不到一半）` : '沒有任何一組能用'}，所以不顯示信心區間。這不代表信心高或低。</p></details>`;
           return;
         }
         if (conf) {
