@@ -278,9 +278,25 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   console.log(`[12a] 武嶺 窗口 ${idx.length} 筆：地面 ${t2m.toFixed(2)}°C、600hPa ${t600.toFixed(2)}°C（${Math.round(avg('geopotential_height_600hPa'))}m）→ 逆溫 ${inv1.toFixed(2)}；舊算法 925hPa 差 ${old925.toFixed(1)}°C；分數 ${sea.score}（手算 ${manual}）`);
   check('[12a] 窗口有 2 筆資料', idx.length === 2);
   check('[12a] 925／700hPa 在地面以下', avg('geopotential_height_925hPa') < om.elevation && avg('geopotential_height_700hPa') < om.elevation);
-  check('[12a] 改用 600hPa 當逆溫上緣', sea.breakdown.inversion.to === '600hPa' && sea.breakdown.inversionDepth.to === '500hPa');
-  check('[12a] 逆溫值＝600hPa−地面（不是 925hPa 的假 23.9）', near(sea.breakdown.inversion.value, inv1, 1e-9) && !near(sea.breakdown.inversion.value, old925, 1));
-  check('[12a] 分數與手算一致', sea.score === manual);
+  // 2026-10-20 v0.22：雲海改看「機位下方」（[15]），武嶺下方有 925／850／700hPa 三層，不再走 v0.19 的上方挑層。
+  // v0.19 的上方挑層函式（平地與下方資料不足時的退路）本身沒改，這三條改成直接驗 pickInversionLayer，條件一字未放寬。
+  const above = WM.pickInversionLayer(h);
+  const inv1Above = above.ok ? above.lo.t - h.surfaceTemp : NaN;
+  check('[12a] 改用 600hPa 當逆溫上緣', above.ok && above.base === 600 && above.top === 500);
+  check('[12a] 逆溫值＝600hPa−地面（不是 925hPa 的假 23.9）', near(inv1Above, inv1, 1e-9) && !near(inv1Above, old925, 1));
+  // 原斷言「雲海分數＝v0.19 手算 58」：依 2026-10-20 老闆裁示（腳下雲海要看機位下方逆溫）改成新判準手算值，手算見 [15a]
+  const w = (k) => avg(k);
+  const pairs = [[925, 850], [850, 700]].map(([a, b]) => ({ a, b, dT: w(`temperature_${b}hPa`) - w(`temperature_${a}hPa`) }));
+  const bestPair = pairs.reduce((x, y) => (y.dT > x.dT ? y : x));
+  const nb1 = bestPair.dT > 0 ? lerp(bestPair.dT, 0, 50, 6, 100) : lerp(bestPair.dT, -6, 0, 0, 50);
+  const nextT = bestPair.b === 850 ? w('temperature_700hPa') : t2m;
+  const nb2d = nextT - w(`temperature_${bestPair.b}hPa`);
+  const nb2 = nb2d >= -1 ? 100 : lerp(nb2d, -6, 0, -1, 100);
+  const nrh = w(`relativehumidity_${bestPair.a}hPa`);
+  const nsh = nrh >= 90 ? 100 : lerp(nrh, 50, 0, 90, 100);
+  const manualBelow = Math.round((nb1 * 0.7 + nb2 * 0.3) * 0.5 + nsh * 0.25 + sw * 0.25);
+  console.log(`[12a] v0.22 機位下方：${bestPair.a}→${bestPair.b}hPa 溫差 ${bestPair.dT.toFixed(2)}°C、濕度 ${nrh.toFixed(0)}% → 手算 ${manualBelow}（v0.19 手算 ${manual}）`);
+  check('[12a] 分數與手算一致（v0.22 機位下方判準）', sea.score === manualBelow && manual === 58 && sea.score !== manual);
 
   // 12b 平地（API 地面 15m）：925hPa 在上方 → 結果必須跟舊公式完全相同（不影響平地景點）
   const lo = fx('om_lowland_2026-10-19.json');
@@ -300,7 +316,12 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   // 12d 機位上方那層缺資料（null）→ 無法判斷
   const holes = WM.seaOfCloudsScore({ surfaceTemp: 5, windSpeed: 1, surfaceElevation: 2000,
     levels: { 925: { t: 20, rh: 90, z: 800 }, 850: { t: 18, rh: 90, z: 1500 }, 700: { t: null, rh: 80, z: 3100 }, 600: { t: 2, rh: 50, z: 4400 } } });
-  check('[12d] 上方層缺溫度 → 無法判斷', holes.score === null);
+  // 2026-10-20 v0.22：這組資料在 2000m 機位下方有 925／850hPa 兩層（800m、1500m），雲海改走機位下方判準（有分數）。
+  // 「上方層缺溫度 → 無法判斷」改用下方只有一層的機位（1000m：925hPa 在下、850hPa 在上方 → 退回 v0.19 → 上方 700hPa 缺溫度）驗，條件不變。
+  const holesBelowOnly1 = WM.seaOfCloudsScore({ surfaceTemp: 5, windSpeed: 1, surfaceElevation: 1000,
+    levels: { 925: { t: 20, rh: 90, z: 800 }, 850: { t: 18, rh: 90, z: 1500 }, 700: { t: null, rh: 80, z: 3100 }, 600: { t: 2, rh: 50, z: 4400 } } });
+  check('[12d] 上方層缺溫度 → 無法判斷', holesBelowOnly1.score === null && holesBelowOnly1.unknown === true && /700hPa/.test(holesBelowOnly1.reason));
+  check('[12d] 原 2000m 那組改走機位下方（925→850hPa）', holes.layer && holes.layer.mode === 'below' && holes.breakdown.inversion.from === '925hPa' && holes.breakdown.inversion.to === '850hPa');
   // 12e 琉璃光同一套挑層邏輯
   const liuliHigh = WM.liuliGuangScore({ surfaceTemp: 10, upperTemp: 20, visibility: 1500, windSpeed: 1, surfaceElevation: 2000 });
   check('[12e] 琉璃光高山＋只有 925 → 無法判斷', liuliHigh.score === null);
@@ -342,7 +363,108 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   check('[14] 等寬字有自帶且進 sw 預快取', fs.existsSync(path.join(root, 'vendor', 'jetbrains-mono', 'JetBrainsMono-latin.woff2')) && sw.includes('./vendor/jetbrains-mono/JetBrainsMono-latin.woff2'));
   check('[14] 字型授權檔隨 App', fs.existsSync(path.join(root, 'vendor', 'jetbrains-mono', 'LICENSE.txt')));
   check('[14] Tabler 授權檔隨 App', fs.existsSync(path.join(root, 'vendor', 'tabler-icons.LICENSE.txt')));
-  check('[14] 今日推薦快取升版（舊分數含假逆溫）', html19.includes("'lc_daily_picks_v2'"));
+  // 2026-10-20 v0.22：v2→v3（雲海改看機位下方，舊快取的高山雲海分數是 v0.19 判準），條件同樣是「有升版」
+  check('[14] 今日推薦快取升版（舊分數含假逆溫）', html19.includes("'lc_daily_picks_v3'") && !html19.includes("'lc_daily_picks_v2'"));
+}
+
+// [15] 2026-10-20 v0.22（老闆裁示）：腳下的雲海看「機位下方」的逆溫
+{
+  const base = { surfaceTemp: 2, windSpeed: 1, surfaceElevation: 3000 };
+  const mk = (t850, extra = {}) => Object.assign({}, base, {
+    levels: Object.assign({
+      925: { t: 18, rh: 95, z: 800 }, 850: { t: t850, rh: 60, z: 1500 },
+      700: { t: 8, rh: 30, z: 3100 }, 600: { t: 2, rh: 20, z: 4400 }, 500: { t: -6, rh: null, z: 5800 }
+    }, extra)
+  });
+  const lerp = (x, x0, y0, x1, y1) => y0 + Math.max(0, Math.min(1, (x - x0) / (x1 - x0))) * (y1 - y0);
+
+  // 15a 下方有逆溫（925 18°C → 850 22°C，+4°C）→ 有分；手算：inv +4 → 50+4/6*50；厚度＝機位地面 2°C − 850 22°C（下方沒有下一層）→ 0；濕度 925 95% → 100；風 100
+  const inv = WM.seaOfCloudsScore(mk(22));
+  const manualA = Math.round((lerp(4, 0, 50, 6, 100) * 0.7 + 0 * 0.3) * 0.5 + 100 * 0.25 + 100 * 0.25);
+  console.log(`[15a] 下方逆溫 +4°C：${inv.score}（手算 ${manualA}），${inv.breakdown.inversion.from}→${inv.breakdown.inversion.to}、厚度 ${inv.breakdown.inversionDepth.from}→${inv.breakdown.inversionDepth.to}、雲頂 ${inv.layer && inv.layer.cloudTopM}m`);
+  check('[15a] 下方有逆溫 → 有分數', Number.isFinite(inv.score) && inv.score > 0);
+  check('[15a] 走機位下方 925→850hPa', inv.layer.mode === 'below' && inv.breakdown.inversion.from === '925hPa' && inv.breakdown.inversion.to === '850hPa');
+  check('[15a] 逆溫值＝850−925＝+4', near(inv.breakdown.inversion.value, 4, 1e-9) && inv.layer.hasInversion === true);
+  check('[15a] 厚度比到機位地面（下方沒有下一層）', inv.breakdown.inversionDepth.to === '機位' && near(inv.breakdown.inversionDepth.value, 2 - 22, 1e-9));
+  check('[15a] 濕度用逆溫底 925hPa', inv.breakdown.upperHumidity.level === '925hPa' && inv.breakdown.upperHumidity.value === 95);
+  check('[15a] 分數與手算一致', inv.score === manualA);
+  check('[15a] 雲頂低於機位 100m 以上', inv.layer.cloudTopM === 800 && inv.layer.cloudTopM < base.surfaceElevation - 100);
+  check('[15a] 不是拿機位上方的 600hPa 比', inv.breakdown.inversion.to !== '600hPa' && inv.breakdown.inversion.to !== '700hPa');
+
+  // 15b 下方無逆溫（925 18°C → 850 14°C，−4°C）→ 雲海分數降低
+  const noInv = WM.seaOfCloudsScore(mk(14));
+  console.log(`[15b] 下方無逆溫 −4°C：${noInv.score}（有逆溫 ${inv.score}）`);
+  check('[15b] 下方無逆溫 → 分數比有逆溫低', Number.isFinite(noInv.score) && noInv.score < inv.score);
+  check('[15b] 逆溫因子低於 50（沒有逆溫）', noInv.breakdown.inversion.score < 50 && noInv.layer.hasInversion === false);
+  check('[15b] 下方無逆溫但上方 600hPa 比地面暖，也不會被拿來加分', noInv.breakdown.inversion.to === '850hPa');
+
+  // 15b' 多對時取「上層比下層暖」最多的那一對：機位 5000m，下方 925/850/700/600 四層，850→700 +3、700→600 +1
+  const multi = WM.seaOfCloudsScore({ surfaceTemp: -2, windSpeed: 1, surfaceElevation: 5000,
+    levels: { 925: { t: 20, rh: 90, z: 800 }, 850: { t: 10, rh: 92, z: 1500 }, 700: { t: 13, rh: 50, z: 3100 }, 600: { t: 14, rh: 40, z: 4400 }, 500: { t: -5, rh: null, z: 5800 } } });
+  check('[15b] 多對取溫差最大 850→700，厚度比到下一層 600hPa', multi.breakdown.inversion.from === '850hPa' && multi.breakdown.inversion.to === '700hPa' && near(multi.breakdown.inversion.value, 3, 1e-9) && multi.breakdown.inversionDepth.to === '600hPa' && near(multi.breakdown.inversionDepth.value, 1, 1e-9));
+
+  // 15c 機位下方資料不足 → 退回 v0.19 判準（結果與 v0.19 公式逐欄相同）
+  //   平地 fixture 96 個整點全部比對：有實際高度（新）vs 拿掉 levels 走舊標準大氣路徑（v0.19 驗過與舊公式相同，見 [12b]）
+  const lo = fx('om_lowland_2026-10-19.json');
+  lo.hourly.surface_elevation = lo.elevation;
+  let same = 0, total = 0, anyBelow = 0;
+  lo.hourly.time.forEach((_, i) => {
+    const hh = WM.hourAt(lo.hourly, i);
+    const a = WM.seaOfCloudsScore(hh);
+    const b = WM.seaOfCloudsScore(Object.assign({}, hh, { levels: undefined, surfaceElevation: undefined }));
+    total++;
+    if (a.score === b.score && JSON.stringify(a.breakdown) === JSON.stringify(b.breakdown)) same++;
+    if (a.layer && a.layer.mode === 'below') anyBelow++;
+  });
+  console.log(`[15c] 平地 ${total} 個整點：與 v0.19 相同 ${same}、誤走下方判準 ${anyBelow}`);
+  check('[15c] 平地 fixture 樣本數 96（防空集合）', total === 96);
+  check('[15c] 平地 96 個整點分數與因子全部與 v0.19 相同', same === total);
+  check('[15c] 平地沒有任何一點走機位下方', anyBelow === 0);
+  //   1000m 機位：下方只有 925hPa 一層 → 退回 v0.19（地面→850hPa）
+  const mid = WM.seaOfCloudsScore({ surfaceTemp: 10, windSpeed: 1, surfaceElevation: 1000,
+    levels: { 925: { t: 15, rh: 90, z: 800 }, 850: { t: 14, rh: 88, z: 1500 }, 700: { t: 8, rh: 50, z: 3100 } } });
+  const midLayer = WM.pickInversionLayer({ surfaceTemp: 10, surfaceElevation: 1000,
+    levels: { 925: { t: 15, rh: 90, z: 800 }, 850: { t: 14, rh: 88, z: 1500 }, 700: { t: 8, rh: 50, z: 3100 } } });
+  check('[15c] 下方只有一層 → 退回 v0.19 地面→850hPa', !mid.layer.mode && mid.breakdown.inversion.from === '地面' && mid.breakdown.inversion.to === '850hPa' && midLayer.base === 850);
+  check('[15c] 退回時逆溫值＝850hPa−地面', near(mid.breakdown.inversion.value, 4, 1e-9));
+  //   沒有實際高度的舊資料 → 退回 v0.19（[12c] 的高山＋只有 925/850 仍是無法判斷）
+  const legacy = WM.seaOfCloudsScore({ surfaceTemp: 15, upperTemp: 20, upperTemp850: 20.5, upperHumidity: 90, windSpeed: 1.5 });
+  check('[15c] 舊呼叫端（無 levels）照 v0.19：地面→925hPa', legacy.breakdown.inversion.from === '地面' && legacy.breakdown.inversion.to === '925hPa' && !legacy.layer.mode);
+
+  // 15d 缺資料 → null（不可當 0 或滿分）
+  const holeT = WM.seaOfCloudsScore(mk(null));
+  check('[15d] 下方 850hPa 缺溫度 → score null、說明原因', holeT.score === null && holeT.unknown === true && holeT.alert === false && /850hPa/.test(holeT.reason) && /溫度/.test(holeT.reason));
+  const holeRh = WM.seaOfCloudsScore(mk(22, { 925: { t: 18, rh: null, z: 800 } }));
+  check('[15d] 逆溫底 925hPa 缺濕度 → score null', holeRh.score === null && /925hPa/.test(holeRh.reason) && /濕度/.test(holeRh.reason));
+  const holeZ = WM.seaOfCloudsScore(mk(22, { 925: { t: 18, rh: 95, z: null } }));
+  check('[15d] 下方層缺高度 → score null（不跳過它硬比）', holeZ.score === null && /高度/.test(holeZ.reason));
+  const holeWind = WM.seaOfCloudsScore(Object.assign(mk(22), { windSpeed: null }));
+  check('[15d] 缺風速 → score null', holeWind.score === null && holeWind.reason === '缺地表風速資料');
+  check('[15d] 缺資料時因子分數也是 null（不是 0）', [holeT, holeRh, holeZ].every((r) => r.breakdown.inversion.score === null && r.breakdown.upperHumidity.score === null));
+  const nearTop = WM.seaOfCloudsScore({ surfaceTemp: 2, windSpeed: 1, surfaceElevation: 1550,
+    levels: { 925: { t: 18, rh: 95, z: 1460 }, 850: { t: 20, rh: 60, z: 1500 }, 700: { t: 8, rh: 30, z: 3100 } } });
+  check('[15d] 下方的層都貼著機位（雲頂離機位 <100m）→ 無法判斷', nearTop.score === null && /100m/.test(nearTop.reason));
+
+  // 15e 武嶺真實預報 96 個整點：全部走機位下方、雲頂都低於機位
+  const om = fx('om_wuling_2026-10-19.json');
+  om.hourly.surface_elevation = om.elevation;
+  let nBelow = 0, nInv = 0, nTopOk = 0, nNum = 0;
+  om.hourly.time.forEach((_, i) => {
+    const r = WM.seaOfCloudsScore(WM.hourAt(om.hourly, i));
+    if (r.layer && r.layer.mode === 'below') nBelow++;
+    if (r.layer && r.layer.hasInversion) nInv++;
+    if (r.layer && r.layer.cloudTopM < om.elevation - 100) nTopOk++;
+    if (Number.isFinite(r.score)) nNum++;
+  });
+  console.log(`[15e] 武嶺 ${om.hourly.time.length} 個整點：走下方 ${nBelow}、有分數 ${nNum}、下方有逆溫 ${nInv}、雲頂低於機位 ${nTopOk}`);
+  check('[15e] 武嶺樣本數 96（防空集合）', om.hourly.time.length === 96);
+  check('[15e] 武嶺每個整點都走機位下方', nBelow === 96 && nNum === 96 && nTopOk === 96);
+
+  // 15f 畫面文字同步新判準
+  check('[15f] 收合摘要改成「雲海改看機位下方」', html19.includes('ℹ️ 高山景點：雲海改看機位下方 ${L.base}→${L.top}hPa'));
+  check('[15f] 說明頁寫出機位下方判準', html19.includes('要靠機位「下方」的逆溫把雲壓在下面'));
+  check('[15f] 因子標籤不再寫死「地面→」', html19.includes("逆溫強度（${inv.from || '地面'}→"));
+  check('[15f] 退回 v0.19 的說明寫出原因（下方不到兩層）', html19.includes('機位下方不到兩個氣壓層，判斷不出腳下的逆溫'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

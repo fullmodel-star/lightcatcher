@@ -114,11 +114,52 @@
     return { ok: false, reason: `地面（約 ${Math.round(ground)}m）以上沒有可用的氣壓層資料`, ground };
   }
 
+  // ---- 雲海（腳下的雲）要看「機位下方」的逆溫 ----
+  // 2026-10-20 v0.22（老闆裁示）：從山頂看到腳下雲海，物理上要的是機位「下方」有逆溫把雲壓在下面；
+  // v0.19 改成「地面→機位上方第一個氣壓層」，比的是機位頭頂上的空氣，跟腳下那片雲無關。
+  // 新判準：用 Open-Meteo 的實際高度（geopotential_height），挑出高度低於機位的氣壓層，至少要兩層，
+  // 由下往上比相鄰兩層，「上層比下層暖」＝逆溫；取溫差最大的一對當雲海的逆溫依據（沒有任何一對變暖時
+  // 取最接近持平的那一對，溫差為負→分數低）。雲被壓在逆溫底下，雲頂≈逆溫底的高度，要比機位低 100m 以上
+  // 才算「腳下」（跟畫面雲層高度計「差 100m 以內＝置身雲霧中」同一個門檻）。
+  // 機位下方的氣壓層不到兩層（平地景點、或舊資料沒有實際高度）→ 回傳 insufficient，呼叫端照 v0.19 判準不變。
+  // 機位下方有層但缺溫度／濕度／高度 → 回傳缺資料（score:null，「無法判斷」），不當 0、不改用別的判準。
+  function pickInversionBelow(h) {
+    if (!h.levels || !isNum(h.surfaceElevation)) return { insufficient: true };
+    const ground = h.surfaceElevation;
+    const below = [];
+    for (const p of PRESSURE_LEVELS) {
+      const lv = h.levels[p];
+      if (!lv) continue;
+      if (!isNum(lv.z)) {
+        // 不知道實際高度：標準大氣高度在機位以下的話，這一層理應在下方 → 缺資料，不能跳過它硬比
+        if (STD_LEVEL_HEIGHT[p] < ground) return { ok: false, reason: `機位下方的 ${p}hPa 氣壓層缺高度資料`, ground };
+        continue;
+      }
+      if (lv.z >= ground) continue;
+      if (!isNum(lv.t)) return { ok: false, reason: `機位下方的 ${p}hPa 氣壓層缺溫度資料`, ground };
+      below.push({ p, t: lv.t, rh: lv.rh, z: lv.z });
+    }
+    if (below.length < 2) return { insufficient: true };
+    below.sort((a, b) => a.z - b.z);
+    let best = null;
+    for (let i = 0; i < below.length - 1; i++) {
+      const lo = below[i], hi = below[i + 1];
+      if (lo.z > ground - LAYER_MARGIN_M) continue; // 雲頂（逆溫底）離機位不到 100m，不算腳下
+      const dT = hi.t - lo.t;
+      if (!best || dT > best.dT) best = { lo, hi, next: below[i + 2] || null, dT };
+    }
+    if (!best) return { ok: false, reason: `機位下方的氣壓層都在機位 ${LAYER_MARGIN_M}m 以內，判斷不出腳下的雲`, ground };
+    if (!isNum(best.lo.rh)) return { ok: false, reason: `機位下方的 ${best.lo.p}hPa 氣壓層缺濕度資料`, ground };
+    return { ok: true, ...best, ground };
+  }
+
   function seaOfCloudsScore(h) {
     const windOk = isNum(h.windSpeed);
     const windScore = !windOk ? null : h.windSpeed <= 3 ? 100
       : h.windSpeed >= 5 ? 0
       : clampLerp(h.windSpeed, 3, 100, 5, 0);
+    const below = isNum(h.surfaceTemp) ? pickInversionBelow(h) : { insufficient: true };
+    if (!below.insufficient) return seaOfCloudsBelow(h, below, windOk, windScore);
     const layer = isNum(h.surfaceTemp) ? pickInversionLayer(h) : { ok: false, reason: '缺地面氣溫資料' };
     if (!layer.ok || !windOk) {
       return {
@@ -160,6 +201,49 @@
     };
   }
   seaOfCloudsScore.requires = ['surfaceTemp', 'windSpeed'];
+
+  // 機位下方模式（見 pickInversionBelow）：權重、分數曲線全部沿用 v0.19，只換「拿哪兩個高度比」
+  // 逆溫強度＝下方溫差最大那對（下層→上層）；厚度＝那對的上層→再上一個點（下一個下方氣壓層，沒有就用機位地面氣溫）；
+  // 濕度＝逆溫底那一層（雲就是在那裡被壓住、凝結）。
+  function seaOfCloudsBelow(h, b, windOk, windScore) {
+    const nextName = b.next ? `${b.next.p}hPa` : '機位';
+    const nextT = b.next ? b.next.t : h.surfaceTemp;
+    if (!b.ok || !windOk) {
+      return {
+        score: null, alert: false, unknown: true,
+        reason: b.ok ? '缺地表風速資料' : b.reason,
+        breakdown: {
+          inversion: { value: null, score: null, weight: 0.5 * 0.7, from: b.ok ? `${b.lo.p}hPa` : null, to: b.ok ? `${b.hi.p}hPa` : null },
+          inversionDepth: { value: null, score: null, weight: 0.5 * 0.3, from: null, to: null },
+          upperHumidity: { value: null, score: null, weight: 0.25, level: null },
+          windSpeed: { value: windOk ? h.windSpeed : null, score: windScore === null ? null : Math.round(windScore), weight: 0.25 }
+        }
+      };
+    }
+    const inv1 = b.dT;
+    const inv1Score = inv1 > 0 ? clampLerp(inv1, 0, 50, 6, 100) : clampLerp(inv1, -6, 0, 0, 50);
+    const inv2 = nextT - b.hi.t;
+    const inv2Score = inv2 >= -1 ? 100 : clampLerp(inv2, -6, 0, -1, 100);
+    const inversionScore = inv1Score * 0.7 + inv2Score * 0.3;
+    const upperHumidity = b.lo.rh;
+    const humidityScore = upperHumidity >= 90 ? 100 : clampLerp(upperHumidity, 50, 0, 90, 100);
+    const score = inversionScore * 0.5 + humidityScore * 0.25 + windScore * 0.25;
+    return {
+      score: Math.round(score),
+      alert: score > 75,
+      layer: {
+        mode: 'below', base: b.lo.p, top: b.hi.p,
+        baseHeightM: Math.round(b.lo.z), topHeightM: Math.round(b.hi.z), groundM: Math.round(b.ground),
+        cloudTopM: Math.round(b.lo.z), hasInversion: inv1 > 0
+      },
+      breakdown: {
+        inversion: { value: inv1, score: Math.round(inv1Score), weight: 0.5 * 0.7, from: `${b.lo.p}hPa`, to: `${b.hi.p}hPa` },
+        inversionDepth: { value: inv2, score: Math.round(inv2Score), weight: 0.5 * 0.3, from: `${b.hi.p}hPa`, to: nextName },
+        upperHumidity: { value: upperHumidity, score: Math.round(humidityScore), weight: 0.25, level: `${b.lo.p}hPa` },
+        windSpeed: { value: h.windSpeed, score: Math.round(windScore), weight: 0.25 }
+      }
+    };
+  }
 
   // 觀星：總雲量(55%)+月相光害(25%)+濕度代表的霾害程度(20%)。
   // 2026-08-27查證Clear Sky Chart(北美業餘天文界20年事實標準)+Bortle Scale：
@@ -546,6 +630,7 @@
     fetchEnsembleWeather,
     ensembleConfidence,
     pickInversionLayer,
+    pickInversionBelow,
     BLUE_HOUR_DEG,
     GOLDEN_HOUR_DEG,
     nearestHourIndex,

@@ -506,7 +506,7 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.21</span>
+  <span class="ver">v0.22</span>
 </header>
 
 <nav id="nav">
@@ -644,9 +644,9 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
       <h2>☁️ 雲海指數＋雲海高度</h2>
       <p class="muted">雲海需要「逆溫」——高空比地面暖，把水氣蓋在低處變成一層雲：</p>
       <ul class="muted" style="padding-left:18px;margin:6px 0">
-        <li><b>逆溫強度 35%</b>：比較地面氣溫與「地面上方第一個氣壓層」的氣溫，高空越暖分數越高——這是逆溫存不存在的主訊號。平地景點是925hPa(約海拔800m)；高山景點的925hPa在地底下，改用上方的850／700／600hPa（用Open-Meteo給的氣壓層實際高度判斷，要比地面高100m以上）。缺資料就顯示「無法判斷」、不給分數（2026-10-19修正：之前武嶺這類高山拿地底下的925hPa外插值來比，算出假的強逆溫，雲海分數偏高）</li>
-        <li><b>逆溫層厚度 15%</b>：再往上一層比較(平地＝925hPa→850hPa，約海拔1500m)，如果溫度持平或續暖代表逆溫「蓋子」夠厚、雲海比較穩定不易破碎；如果快速轉冷代表逆溫層很薄，雲海容易一下就散了（2026-08-24新增，之前只看單一高度）</li>
-        <li><b>高空濕度 25%</b>：用同一個氣壓層的濕度，夠濕才有雲可以形成，≥90%最佳(2026-08-27校準，原85%)</li>
+        <li><b>逆溫強度 35%</b>：逆溫存不存在的主訊號，高處越暖分數越高。<b>高山景點（機位下方至少有兩個氣壓層）</b>：從山上看到腳下的雲海，要靠機位「下方」的逆溫把雲壓在下面，所以比的是機位以下相鄰兩個氣壓層（例如武嶺的925→850→700hPa）的溫度，取「上層比下層暖」最多的那一對；雲頂約在逆溫底的高度，要比機位低100m以上才算腳下的雲（用Open-Meteo給的氣壓層實際高度判斷）。下方沒有任何一層變暖＝沒有逆溫，分數會偏低。<b>平地或機位下方不到兩層的景點</b>：比較地面氣溫與「地面上方第一個氣壓層」(平地是925hPa，約海拔800m；要比地面高100m以上)的氣溫。缺資料就顯示「無法判斷」、不給分數（2026-10-19修正：之前武嶺這類高山拿地底下的925hPa外插值來比，算出假的強逆溫；2026-10-20再修正：高山改看機位下方，之前比的是機位頭頂上的600hPa，跟腳下的雲無關）</li>
+        <li><b>逆溫層厚度 15%</b>：從逆溫的上層再往上比一個點(平地＝925hPa→850hPa，約海拔1500m；高山＝下一個在機位下方的氣壓層，沒有就比機位地面氣溫)，如果溫度持平或續暖代表逆溫「蓋子」夠厚、雲海比較穩定不易破碎；如果快速轉冷代表逆溫層很薄，雲海容易一下就散了（2026-08-24新增，之前只看單一高度）</li>
+        <li><b>高空濕度 25%</b>：平地用同一個氣壓層的濕度；高山用逆溫底那一層（雲被壓住的地方）的濕度，夠濕才有雲可以形成，≥90%最佳(2026-08-27校準，原85%)</li>
         <li><b>地表風速 25%</b>：≤3m/s最佳，風太大雲海會被吹散(2026-08-27校準，原2m/s)</li>
       </ul>
       <p class="muted"><b>雲海高度</b>是額外估算：用氣象學經典的「凝結高度」公式——<code>雲底高度(公尺) ≈ 125 × (地面氣溫 − 露點溫度)</code>（Espy's equation）反推雲層大概在哪個海拔，藉此判斷你所在的觀景點是在雲層之上還是之下。這是理論估算不是實測，僅供參考。</p>
@@ -1129,7 +1129,8 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
   // 沒有後端排程，快取存在瀏覽器localStorage，靠日期字串比對做到「一天一次」，
   // 不同使用者各自的瀏覽器各跑各的，不是全站共用同一份結果。
   // 2026-10-19 v0.19：v1→v2，舊快取的雲海分數含高山假逆溫、藍調時刻是舊定義，當天直接重算
-  const DAILY_PICKS_KEY = 'lc_daily_picks_v2';
+  // 2026-10-20 v0.22：v2→v3，雲海改看機位下方逆溫，舊快取的高山雲海分數是 v0.19 判準
+  const DAILY_PICKS_KEY = 'lc_daily_picks_v3';
   const KIND_META = {
     glow: { icon: '🔥', label: '火燒雲', scoreFn: window.WeatherMath.fieryGlowScore },
     sea: { icon: '☁️', label: '雲海', scoreFn: window.WeatherMath.seaOfCloudsScore },
@@ -1633,7 +1634,8 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
   // 逆溫比的是「地面→地面上方第一個氣壓層」（高山景點不再拿地底下的 925hPa 硬比），標籤照實際用到的層寫
   function seaFactorsHtml(b) {
     const inv = b.inversion, dep = b.inversionDepth, hum = b.upperHumidity;
-    return factorBar(`逆溫強度（地面→${inv.to || '上方氣壓層'}，上層越暖越好）`, fmtNum(inv.value, 1, '°C'), inv.score) +
+    // 2026-10-20 v0.22：高山改看機位下方相鄰兩層（from＝下層，例如 925hPa），平地 from＝'地面'
+    return factorBar(`逆溫強度（${inv.from || '地面'}→${inv.to || '上方氣壓層'}，上層越暖越好）`, fmtNum(inv.value, 1, '°C'), inv.score) +
       factorBar(`逆溫層厚度（${dep.from && dep.to ? dep.from + '→' + dep.to : '再上一層'}，持平或續暖＝夠厚）`, fmtNum(dep.value, 1, '°C'), dep.score) +
       factorBar(`高空濕度（${hum.level || '上方氣壓層'}）`, fmtNum(hum.value, 0, '%'), hum.score) +
       factorBar('地表風速(靜穩最佳)', fmtNum(b.windSpeed.value, 1, ' m/s'), b.windSpeed.score);
@@ -1653,9 +1655,15 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
     if (sea.score == null) {
       return `<p class="unknown-note">⚠️ <b>無法判斷逆溫</b>：${esc(sea.reason || '缺資料')}。雲海指數最重要的因子（逆溫，佔 50%）算不出來，所以不給分數。</p>`;
     }
+    if (sea.layer && sea.layer.mode === 'below') {
+      // 2026-10-20 v0.22（老闆裁示）：腳下的雲海看機位「下方」的逆溫
+      const L = sea.layer;
+      const verdict = L.hasInversion ? '上層比下層暖，有逆溫把雲壓在下面' : '下方各層都沒有變暖（沒有逆溫），雲不容易被壓成一片，分數因此偏低';
+      return `<details class="lc-fold" style="margin:8px 0 0"><summary>ℹ️ 高山景點：雲海改看機位下方 ${L.base}→${L.top}hPa</summary><p class="note">地面約 ${L.groundM} m。腳下的雲海要靠機位下方的逆溫把雲壓住，所以比的是機位以下相鄰兩個氣壓層：${L.base}hPa（約 ${L.baseHeightM} m）→${L.top}hPa（約 ${L.topHeightM} m），${verdict}。雲頂約在 ${L.cloudTopM} m，比機位低。</p></details>`;
+    }
     if (sea.layer && sea.layer.base !== 925) {
       // 2026-10-19 v0.20 ⑤：一行摘要＋點開看全文（原句一字未改，放在 details 裡）
-      return `<details class="lc-fold" style="margin:8px 0 0"><summary>ℹ️ 高山景點：逆溫改用 ${sea.layer.base}hPa 判斷</summary><p class="note">地面約 ${sea.layer.groundM} m，925hPa 等較低的氣壓層在地面以下，逆溫改用機位上方的 ${sea.layer.base}hPa（約 ${sea.layer.baseHeightM} m）判斷。</p></details>`;
+      return `<details class="lc-fold" style="margin:8px 0 0"><summary>ℹ️ 高山景點：逆溫改用 ${sea.layer.base}hPa 判斷</summary><p class="note">地面約 ${sea.layer.groundM} m，925hPa 等較低的氣壓層在地面以下；機位下方不到兩個氣壓層，判斷不出腳下的逆溫，所以逆溫改用機位上方的 ${sea.layer.base}hPa（約 ${sea.layer.baseHeightM} m）判斷。</p></details>`;
     }
     return '';
   }
