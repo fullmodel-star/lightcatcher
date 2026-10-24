@@ -506,7 +506,7 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
     <div class="rl-slogan">最美的那道光，最值得你等。</div>
   </div>
   <span class="rl-spacer"></span>
-  <span class="ver">v0.23</span>
+  <span class="ver">v0.25</span>
 </header>
 
 <nav id="nav">
@@ -817,15 +817,19 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
     const sea = window.WeatherMath.seaOfCloudsScore(h);
     if (sea.score == null) return `☁️ 雲海：<b>無法判斷</b>（${sea.reason}）`;
     const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
+    if (cb.amslM == null) return `☁️ 雲海：<b style="color:${scoreTextColor(sea.score)}">${sea.score}分</b>（缺地面氣溫或露點資料，雲海高度無法估算）`;
     const cmp = cb.amslM <= groundElevationM ? '在雲層之上✅' : '可能在雲層之下';
     return `☁️ 雲海：<b style="color:${scoreTextColor(sea.score)}">${sea.score}分</b>（雲海高度估計約${cb.amslM}m，機位${cmp}）`;
   }
+  // 2026-10-24 v0.25：火燒雲／觀星缺資料時比照雲海寫「無法判斷」，不印假分數
   function glowLine(h, label) {
     const glow = window.WeatherMath.fieryGlowScore(h);
+    if (glow.score == null) return `🔥 ${label}火燒雲：<b>無法判斷</b>（${glow.reason}）`;
     return `🔥 ${label}火燒雲：<b style="color:${scoreTextColor(glow.score)}">${glow.score}分</b>`;
   }
   function starsLine(h) {
     const stars = window.WeatherMath.starsScore(h);
+    if (stars.score == null) return `✨ 觀星：<b>無法判斷</b>（${stars.reason}）`;
     return `✨ 觀星：<b style="color:${scoreTextColor(stars.score)}">${stars.score}分</b>（已算月相，未算市區光害）`;
   }
   function liuliLine(h) {
@@ -1212,7 +1216,12 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
     const batch = await window.WeatherMath.fetchHourlyWeatherBatch(locations);
     const results = locations.map((loc, i) => { try { return scoreLocationForDailyPicks(loc, batch[i]); } catch (e) { return null; } })
       .filter(Boolean);
-    if (!results.length) throw new Error('預報資料抓取失敗');
+    if (!results.length) {
+      // 2026-10-24 v0.25：有抓到預報、但每個景點的分數都「無法判斷」（API 回空值）→ 跟抓取失敗分開講
+      const err = new Error('預報資料抓取失敗');
+      if (batch.some((d) => d && d.hourly)) err.noData = true;
+      throw err;
+    }
     const alerts = results.filter((p) => p.alert).sort((a, b) => b.score - a.score);
     return { picks: alerts.slice(0, 3), scanned: results.length, total: locations.length, alerts: alerts.length, at: Date.now() };
   }
@@ -1263,7 +1272,9 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
       renderDailyPicks(result);
     } catch (e) {
       dailyPicks = [];
-      document.getElementById('dailyPicksBody').textContent = '推薦計算失敗（氣象服務暫時忙碌），請稍後重新整理頁面再試；也可以直接在下方選景點。';
+      document.getElementById('dailyPicksBody').textContent = e && e.noData
+        ? '今天的氣象預報缺資料（雲量、濕度等欄位是空的），各景點都無法判斷，所以不給推薦；請稍後重新整理頁面再試。'
+        : '推薦計算失敗（氣象服務暫時忙碌），請稍後重新整理頁面再試；也可以直接在下方選景點。';
     }
   }
   dailyPicksPromise = initDailyPicks();
@@ -1435,7 +1446,9 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
     let starsCell = '<b class="m">—</b>';
     if (lastWeather && validDate(t.night)) {
       const r = scoreAtTarget(lastWeather.data, t.night, window.WeatherMath.starsScore);
-      starsCell = r ? `<b class="m" style="color:${scoreTextColor(r.result.score)}">${r.result.score}</b>` : '<b class="m" style="font-size:14px">超出預報</b>';
+      starsCell = !r ? '<b class="m" style="font-size:14px">超出預報</b>'
+        : r.result.score == null ? `<b class="m" style="font-size:14px;color:var(--steel)" title="${esc(r.result.reason || '')}">無法判斷</b>`
+        : `<b class="m" style="color:${scoreTextColor(r.result.score)}">${r.result.score}</b>`;
     }
     document.getElementById('trackFacts').innerHTML =
       `<div><span>日出</span><b class="m">${hhmm(t.sunrise)}</b></div><div><span>日落</span><b class="m">${hhmm(t.sunset)}</b></div><div><span>正午高度</span><b class="m">${sunMax.toFixed(1)}°</b></div>` +
@@ -1540,7 +1553,10 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
       if (kind === 'sea') {
         const cb = window.WeatherMath.cloudBaseAMSL(r.h, groundElevationM);
         const spotM = selectedSpot && Number.isFinite(selectedSpot.min_elevation) ? selectedSpot.min_elevation : null;
-        if (spotM !== null) {
+        if (spotM !== null && cb.amslM == null) {
+          // 2026-10-24 v0.25：缺氣溫／露點就不畫高度計（舊版 null 當 0，畫出「雲層高度＝地面高度」）
+          extra += `<p class="unknown-note">⚠️ <b>雲層高度無法估算</b>：缺地面氣溫或露點資料。</p>`;
+        } else if (spotM !== null) {
           const diff = spotM - cb.amslM;
           const note = diff > 100 ? '機位在雲層之上，適合拍攝' : diff < -100 ? '機位可能在雲層之下，看不到雲海' : '機位接近雲層高度，可能置身雲霧中';
           extra += `<div class="alt">${altimeterSvg(cb.amslM, spotM)}<div><div class="row2"><span>雲層高度（估）</span><b class="m">${cb.amslM} m</b></div><div class="row2"><span>機位</span><b class="m" style="color:var(--acc)">${spotM} m</b></div><p style="margin-top:6px">${note}</p><p class="note" style="margin-top:4px">LCL 公式 125×(氣溫−露點)，理論估算非實測</p></div></div>`;
@@ -1548,8 +1564,10 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
         extra += seaLayerNote(r.result);
         extra += `<div class="sub2">${ic('cloud')}雲海因子・<span class="m">${hhmm(target)}</span></div>${seaFactorsHtml(b)}`;
       } else if (kind === 'glow') {
+        if (r.result.score == null) extra += unknownNote('火燒雲', r.result);
         extra += `<div class="sub2">${ic('flame')}火燒雲因子・<span class="m">${hhmm(target)}</span></div>${glowFactorsHtml(b)}`;
       } else if (kind === 'stars') {
+        if (r.result.score == null) extra += unknownNote('觀星', r.result);
         extra += `<div class="sub2">${ic('moon-stars')}觀星因子・<span class="m">${hhmm(target)}</span></div>${starsFactorsHtml(b)}`;
       } else if (kind === 'liuli') {
         if (r.result.score == null) extra += `<p class="unknown-note">⚠️ <b>琉璃光無法判斷</b>：${esc(r.result.reason || '')}。</p>`;
@@ -1625,11 +1643,16 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
       <div class="factor-bar"><i style="width:${Math.max(2, Math.min(100, score))}%"></i><s style="left:40%"></s><s style="left:75%"></s></div>
     </div>`;
   }
+  // 2026-10-24 v0.25：因子值無資料（null）→ 標籤傳 null，factorBar 會寫「無法判斷」（舊版會印出「null%」或 NaN）
+  const valOr = (v, f) => (v == null ? null : f(v));
+  function unknownNote(label, r) {
+    return `<p class="unknown-note">⚠️ <b>${label}無法判斷</b>：${esc(r.reason || '缺資料')}，所以不給分數。</p>`;
+  }
   function glowFactorsHtml(b) {
-    return factorBar('低雲量(越低越好)', b.lowCloud.value + '%', b.lowCloud.score) +
-      factorBar('中高雲量(40-80%最佳)', Math.min(100, b.midHighCloud.value) + '%', b.midHighCloud.score) +
-      factorBar('濕度(越低越通透)', Math.round(b.humidity.value) + '%', b.humidity.score) +
-      factorBar('能見度', Math.round(b.visibility.value / 1000) + ' km', b.visibility.score);
+    return factorBar('低雲量(越低越好)', valOr(b.lowCloud.value, (v) => v + '%'), b.lowCloud.score) +
+      factorBar('中高雲量(40-80%最佳)', valOr(b.midHighCloud.value, (v) => Math.min(100, v) + '%'), b.midHighCloud.score) +
+      factorBar('濕度(越低越通透)', valOr(b.humidity.value, (v) => Math.round(v) + '%'), b.humidity.score) +
+      factorBar('能見度', valOr(b.visibility.value, (v) => Math.round(v / 1000) + ' km'), b.visibility.score);
   }
   // 逆溫比的是「地面→地面上方第一個氣壓層」（高山景點不再拿地底下的 925hPa 硬比），標籤照實際用到的層寫
   function seaFactorsHtml(b) {
@@ -1641,9 +1664,9 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
       factorBar('地表風速(靜穩最佳)', fmtNum(b.windSpeed.value, 1, ' m/s'), b.windSpeed.score);
   }
   function starsFactorsHtml(b) {
-    return factorBar('總雲量', b.totalCloud.value + '%', b.totalCloud.score) +
-      factorBar('月相亮度', b.moonPhase.value + '%', b.moonPhase.score) +
-      factorBar('濕度(霾害程度)', Math.round(b.humidity.value) + '%', b.humidity.score);
+    return factorBar('總雲量', valOr(b.totalCloud.value, (v) => v + '%'), b.totalCloud.score) +
+      factorBar('月相亮度', valOr(b.moonPhase.value, (v) => v + '%'), b.moonPhase.score) +
+      factorBar('濕度(霾害程度)', valOr(b.humidity.value, (v) => Math.round(v) + '%'), b.humidity.score);
   }
   function liuliFactorsHtml(b) {
     return factorBar(`逆溫強度（地面→${b.inversion.to || '上方氣壓層'}，谷地夠不夠鎖霧）`, fmtNum(b.inversion.value, 1, '°C'), b.inversion.score) +
@@ -1671,8 +1694,9 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
   function renderGlowCard(glow, title) {
     const b = glow.breakdown;
     return `<div class="score-card" data-concept="glow">
-      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(glow.score)}">${glow.score}</span></div>
+      <div class="score-head"><span class="score-icon">🔥</span><span class="score-title">${title}</span><a class="info-link" href="#about:glow">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(glow.score)}">${glow.score == null ? '—' : glow.score}</span></div>
       <div class="score-factors">${glowFactorsHtml(b)}</div>
+      ${glow.score == null ? unknownNote('火燒雲', glow) : ''}
       ${glow.alert ? '<div class="ring-alert">🔥 大景預警</div>' : ''}
       <div class="confidence-slot"></div>
     </div>`;
@@ -1681,9 +1705,10 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
   function renderSeaCard(sea, h, groundElevationM) {
     const b = sea.breakdown;
     const cb = window.WeatherMath.cloudBaseAMSL(h, groundElevationM);
-    let heightNote = `雲海高度估計約 <b class="m">${cb.amslM} m</b>（海拔，理論估算非實測）`;
+    let heightNote = cb.amslM == null ? '雲海高度：缺地面氣溫或露點資料，無法估算'
+      : `雲海高度估計約 <b class="m">${cb.amslM} m</b>（海拔，理論估算非實測）`;
     let below = false;
-    if (selectedSpot && Number.isFinite(selectedSpot.min_elevation)) {
+    if (cb.amslM != null && selectedSpot && Number.isFinite(selectedSpot.min_elevation)) {
       const diff = selectedSpot.min_elevation - cb.amslM;
       below = diff < -100;
       heightNote += diff > 100 ? `。你選的機位（${selectedSpot.min_elevation}m）在雲層之上，適合拍攝 ✅`
@@ -1707,8 +1732,9 @@ window.RL_SPLASH = {"app":"402","variant":"C","name":"光影獵人","bg":"#141E2
   function renderStarsCard(stars) {
     const b = stars.breakdown;
     return `<div class="score-card" data-concept="stars">
-      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(stars.score)}">${stars.score}</span></div>
+      <div class="score-head"><span class="score-icon">✨</span><span class="score-title">觀星指數</span><a class="info-link" href="#about:stars">ℹ️ 怎麼算的</a><span class="score-num m" style="color:${scoreTextColor(stars.score)}">${stars.score == null ? '—' : stars.score}</span></div>
       <div class="score-factors">${starsFactorsHtml(b)}</div>
+      ${stars.score == null ? unknownNote('觀星', stars) : ''}
       <p class="muted" style="margin:8px 0 0">⚠️ 已算月相，但未考慮市區人造光害，市區或近城鎮地點實際觀星品質會比這個分數差很多。</p>
       <div class="confidence-slot"></div>
     </div>`;

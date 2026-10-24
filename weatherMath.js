@@ -52,6 +52,15 @@
   // 「偏高但不歸零」區間；「低雲也一起滿天」(貼地陰天)的情境仍由lowScore單獨砍到0
   // 分主導總分，不受這次調整影響。目前仍是單一真實案例校準，非精雕公式。
   function fieryGlowScore(h) {
+    const lack = missingOf(h, fieryGlowScore);
+    if (lack.length) {
+      return unknownResult(lack, {
+        lowCloud: { value: numOrNull(h.cloudLow), score: null, weight: 0.35 },
+        midHighCloud: { value: isNum(h.cloudMid) && isNum(h.cloudHigh) ? h.cloudMid + h.cloudHigh : null, score: null, weight: 0.35 },
+        humidity: { value: numOrNull(h.humidity), score: null, weight: 0.15 },
+        visibility: { value: numOrNull(h.visibility), score: null, weight: 0.15 }
+      });
+    }
     const lowScore = h.cloudLow <= 10 ? 100
       : h.cloudLow >= 30 ? Math.max(0, 40 - (h.cloudLow - 30) * 2)
       : clampLerp(h.cloudLow, 10, 100, 30, 40);
@@ -91,6 +100,23 @@
   const STD_LEVEL_HEIGHT = { 925: 760, 850: 1460, 700: 3010, 600: 4200, 500: 5570 };
   const LAYER_MARGIN_M = 100;
   const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+  const numOrNull = (v) => (isNum(v) ? v : null);
+
+  // 2026-10-24 v0.25：火燒雲／觀星／藍調比照雲海、琉璃光——公式 requires 的欄位有任一個無資料（null／欄位不存在），
+  // 就回傳 score:null（畫面顯示「無法判斷」＋缺哪些資料），不再把 null 當 0（雲量 0%＝萬里無雲的假象）、也不出 NaN。
+  // 欄位都有資料時走原公式，分數一個位元都不變。
+  function missingOf(h, fn) {
+    return (fn.requires || []).filter((k) => !isNum(h[k]));
+  }
+  function unknownResult(lack, breakdown) {
+    return {
+      score: null,
+      alert: false,
+      unknown: true,
+      reason: `缺${lack.map((k) => FIELD_LABEL[k] || k).join('、')}資料`,
+      breakdown
+    };
+  }
 
   // full=true（雲海）：要該層濕度＋再上一層溫度（判厚度）；full=false（琉璃光）：只看地面→該層溫差
   function pickInversionLayer(h, full = true) {
@@ -254,6 +280,15 @@
   // 地面濕度當「透明度」代理仍不夠精確(CSC官方定義透明度是整層大氣柱總水氣量，
   // 濕度另有獨立用途是提醒結露/鏡頭起霧)，但免費API目前沒有更好的替代資料源，暫留。
   function starsScore(h) {
+    const lack = missingOf(h, starsScore);
+    if (lack.length) {
+      const moon = isNum(h.moonIllumination) ? h.moonIllumination : 0;
+      return unknownResult(lack, {
+        totalCloud: { value: null, score: null, weight: 0.55 },
+        moonPhase: { value: Math.round(moon * 100), score: null, weight: 0.25 },
+        humidity: { value: numOrNull(h.humidity), score: null, weight: 0.2 }
+      });
+    }
     const totalCloud = (h.cloudLow + h.cloudMid + h.cloudHigh) / 3;
     const cloudScore = clampLerp(totalCloud, 0, 100, 60, 0);
     const humidityScore = h.humidity <= 60 ? 100 : clampLerp(h.humidity, 60, 100, 95, 0);
@@ -276,6 +311,14 @@
   // 但門檻比觀星寬鬆(70%才歸零，不是60%)，因為藍調時刻本來就偏短暫、些微雲層還能接受。
   // 權重仍是方向性估計值，跟其他三個指數同一套自訂邏輯，非驗證過的氣象公式。
   function blueHourScore(h) {
+    const lack = missingOf(h, blueHourScore);
+    if (lack.length) {
+      return unknownResult(lack, {
+        totalCloud: { value: null, score: null, weight: 0.5 },
+        visibility: { value: numOrNull(h.visibility), score: null, weight: 0.3 },
+        humidity: { value: numOrNull(h.humidity), score: null, weight: 0.2 }
+      });
+    }
     const totalCloud = (h.cloudLow + h.cloudMid + h.cloudHigh) / 3;
     const cloudScore = clampLerp(totalCloud, 0, 100, 70, 0);
     const visibilityScore = clampLerp(h.visibility, 5000, 0, 15000, 100);
@@ -342,14 +385,18 @@
 
   // 雲海高度估算：LCL(凝結高度) ≈ 125 × (地面氣溫 − 露點溫度)公尺，氣象學經典估算式(Espy's equation)。
   // 回傳離地高度(AGL)；要換算成海拔(AMSL)需再加地面高程，見cloudBaseAMSL。
+  // 2026-10-24 v0.25：氣溫或露點無資料 → null（舊版 null 當 0，算出「雲層高度＝地面高度」的假估算）
   function lclHeightAGL(surfaceTemp, dewpoint) {
+    if (!isNum(surfaceTemp) || !isNum(dewpoint)) return null;
     return Math.max(0, 125 * (surfaceTemp - dewpoint));
   }
 
   // groundElevationM：查詢點的地面高程(公尺)。有熱點資料庫的min_elevation就優先用它，
   // 沒有的話退回Open-Meteo API回應本身的elevation欄位(格點高程，較粗略)。
+  // 算不出來時 aglM／amslM 都是 null，畫面要寫「無法估算」，不畫高度計。
   function cloudBaseAMSL(h, groundElevationM) {
     const agl = lclHeightAGL(h.surfaceTemp, h.dewpoint);
+    if (agl === null) return { aglM: null, amslM: null };
     return { aglM: Math.round(agl), amslM: Math.round(groundElevationM + agl) };
   }
 
@@ -543,8 +590,17 @@
     return out;
   }
 
+  // 2026-10-24 v0.25：時間窗平均只算有效數字（null／欄位不存在跳過）；全部無效回 null（＝無資料）。
+  // 舊版 reduce 把 null 當 0（整段 null → 雲量 0%＝萬里無雲 → 武嶺觀星 86 分＋大景預警）、欄位不存在時丟錯或出 NaN。
+  // 全部有效時加總順序與舊版相同（由 0 依序加、除以筆數），結果逐位元一致。
   function buildH(hourly, indices, refDate) {
-    const avg = (arr) => indices.reduce((s, i) => s + arr[i], 0) / indices.length;
+    const avg = (arr) => {
+      if (!arr) return null;
+      let s = 0, n = 0;
+      indices.forEach((i) => { const v = arr[i]; if (isNum(v)) { s += v; n++; } });
+      return n ? s / n : null;
+    };
+    const wind = avg(hourly.windspeed_10m);
     return {
       cloudLow: avg(hourly.cloudcover_low),
       cloudMid: avg(hourly.cloudcover_mid),
@@ -556,7 +612,7 @@
       upperTemp: avg(hourly.temperature_925hPa),
       upperTemp850: avg(hourly.temperature_850hPa),
       upperHumidity: avg(hourly.relativehumidity_925hPa),
-      windSpeed: avg(hourly.windspeed_10m) / 3.6, // km/h -> m/s，PRD門檻(4m/s)用m/s
+      windSpeed: wind === null ? null : wind / 3.6, // km/h -> m/s，PRD門檻(4m/s)用m/s
       surfaceElevation: isNum(hourly.surface_elevation) ? hourly.surface_elevation : undefined,
       levels: levelsAt(hourly, indices),
       moonIllumination: refDate ? window.SunCalc.getMoonIllumination(refDate).fraction : undefined

@@ -7,6 +7,7 @@
 // 日出日落比對來源：中央氣象署每日天文資料 2026（_tools/fixtures/cwa_astronomy_2026.json，2026-10-24 下載後離線保存），
 // 另以 NOAA 太陽位置演算法（本檔自寫，不靠 SunCalc）交叉核對高山景點。
 // 已知（疑似）bug 用 bug() 記錄：會印 KNOWN-BUG，不讓整體失敗；哪天修好了會印 XPASS 提醒把它改成一般斷言。
+// 2026-10-24 v0.25：原 7 條 KNOWN-BUG（[5d]×2／[5e]／[5f]／[11f]／[11h]／[11j]，缺資料被當 0）已修好，改成一般斷言。
 process.env.TZ = 'Asia/Taipei';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -223,21 +224,21 @@ section('[5] 分數範圍與缺資料（隨機輸入 → 0~100 整數或 null，
   ];
   check('[5b] 極端輸入仍在 0~100（n=6）', ext.every((r) => isInt0to100(r.score)), ext.map((r) => r.score).join('/'));
 
-  // 缺資料：雲海／琉璃光有「無法判斷」設計（v0.19 起：缺資料不當 0）；火燒雲／觀星／藍調沒有
+  // 缺資料：雲海／琉璃光有「無法判斷」設計（v0.19 起：缺資料不當 0）；火燒雲／觀星／藍調 v0.25 起比照（2026-10-24 修，原為 KNOWN-BUG）
   const allNull = { cloudLow: null, cloudMid: null, cloudHigh: null, humidity: null, visibility: null, surfaceTemp: null, dewpoint: null, windSpeed: null };
   check('[5c] 全部欄位 null：雲海、琉璃光 → score null（無法判斷）', WM.seaOfCloudsScore(allNull).score === null && WM.liuliGuangScore(allNull).score === null);
   const nullScores = ['fieryGlowScore', 'starsScore', 'blueHourScore'].map((f) => [f, WM[f](allNull)]);
-  console.log(`  缺資料時：${nullScores.map(([f, r]) => `${f}=${r.score}${r.alert ? '（大景預警）' : ''}`).join('、')}`);
-  bug('[5d] 全部欄位 null：火燒雲／觀星／藍調不應給出看似正常的分數（應比照雲海回「無法判斷」）', nullScores.every(([, r]) => r.score === null));
-  bug('[5d] 全部欄位 null：觀星不應亮「大景預警」', !WM.starsScore(allNull).alert, `starsScore(null)=${WM.starsScore(allNull).score}, alert=${WM.starsScore(allNull).alert}`);
+  console.log(`  缺資料時：${nullScores.map(([f, r]) => `${f}=${r.score}${r.alert ? '（大景預警）' : ''}（${r.reason}）`).join('、')}`);
+  check('[5d] 全部欄位 null：火燒雲／觀星／藍調不應給出看似正常的分數（比照雲海回「無法判斷」）', nullScores.every(([, r]) => r.score === null && r.unknown === true && r.alert === false && typeof r.reason === 'string' && r.reason.length > 0));
+  check('[5d] 全部欄位 null：觀星不應亮「大景預警」', !WM.starsScore(allNull).alert, `starsScore(null)=${WM.starsScore(allNull).score}, alert=${WM.starsScore(allNull).alert}`);
   const undef = ['fieryGlowScore', 'starsScore', 'blueHourScore'].map((f) => WM[f]({}).score);
-  bug('[5e] 欄位不存在（undefined）時分數不應是 NaN', undef.every((v) => !Number.isNaN(v)), `得到 ${undef.map(String).join('/')}`);
+  check('[5e] 欄位不存在（undefined）時分數不應是 NaN（回 null＝無法判斷）', undef.every((v) => v === null), `得到 ${undef.map(String).join('/')}`);
   // 資料層：Open-Meteo 的逐時欄位是 null（API 回空值）時，hourAtWindow 會把 null 當 0
   const om = fx('_spec/fixtures/om_lowland_2026-10-19.json');
   const hh = JSON.parse(JSON.stringify(om.hourly));
   Object.keys(hh).forEach((k) => { if (k !== 'time') hh[k] = hh[k].map(() => null); });
   const hn = WM.hourAtWindow(hh, new Date('2026-10-20T17:00:00+08:00'));
-  bug('[5f] API 逐時值全是 null 時，hourAtWindow 不應把 null 平均成 0（雲量 0%＝萬里無雲的假象）', hn.cloudLow === null || Number.isNaN(hn.cloudLow),
+  check('[5f] API 逐時值全是 null 時，hourAtWindow 不應把 null 平均成 0（雲量 0%＝萬里無雲的假象）', hn.cloudLow === null && hn.humidity === null && hn.windSpeed === null && WM.starsScore(hn).score === null && WM.fieryGlowScore(hn).score === null && WM.blueHourScore(hn).score === null,
     `cloudLow=${hn.cloudLow} humidity=${hn.humidity} → 觀星 ${WM.starsScore(hn).score}／火燒雲 ${WM.fieryGlowScore(hn).score}／藍調 ${WM.blueHourScore(hn).score}`);
   check('[5f] 同一份 null 資料：雲海仍判無法判斷', WM.seaOfCloudsScore(hn).score === null);
 }
@@ -586,7 +587,7 @@ async function browserTests() {
     const { context, page, errors } = await openPage('null');
     const pickText = await page.evaluate(() => document.getElementById('dailyPicksBody').textContent.trim());
     const picks = await page.evaluate(() => [...document.querySelectorAll('#dailyPicksBody .pick')].map((el) => el.textContent.replace(/\s+/g, ' ').trim()));
-    bug('[11f] API 回空值時，今日推薦不應列出「大景預警」景點', picks.length === 0, `推薦 ${picks.length} 筆：${picks.slice(0, 3).join('｜') || pickText.slice(0, 40)}`);
+    check('[11f] API 回空值時，今日推薦不應列出「大景預警」景點', picks.length === 0, `推薦 ${picks.length} 筆：${picks.slice(0, 3).join('｜') || pickText.slice(0, 40)}`);
     // 選武嶺（雲海＋日落＋星空）
     await page.evaluate(() => { const b = [...document.querySelectorAll('#spotChips .chip')].find((c) => c.textContent.includes('武嶺')); b.click(); });
     await waitDetail(page);
@@ -595,11 +596,18 @@ async function browserTests() {
     const sea = g.find((x) => x.label.includes('雲海'));
     check('[11g] 缺資料時雲海儀表顯示「?／無法判斷」（不是假分數）', g.length >= 3 && sea && sea.sc === '?' && /無法判斷/.test(sea.st));
     const others = g.filter((x) => !x.label.includes('雲海'));
-    bug('[11h] 缺資料時火燒雲／觀星儀表也應顯示「無法判斷」而不是分數', others.length > 0 && others.every((x) => x.sc === '?' || x.sc === '—'), others.map((x) => `${x.label}=${x.sc}`).join('、'));
+    check('[11h] 缺資料時火燒雲／觀星儀表也應顯示「無法判斷」而不是分數', others.length > 0 && others.every((x) => x.sc === '?' && /無法判斷/.test(x.st)), others.map((x) => `${x.label}=${x.sc}`).join('、'));
     const txt = await page.evaluate(() => document.getElementById('mainEl').innerText);
     check('[11i] 缺資料時畫面沒有 NaN／Infinity／undefined', !/NaN|Infinity|undefined/.test(txt));
     const alt = await page.evaluate(() => { const a = document.querySelector('#blueHourScoreLine .alt'); return a ? a.innerText.replace(/\s+/g, ' ') : ''; });
-    bug('[11j] 缺氣溫／露點時不應畫出「雲層高度＝地面高度」的估算', !/雲層高度（估）/.test(alt), alt.slice(0, 80));
+    check('[11j] 缺氣溫／露點時不應畫出「雲層高度＝地面高度」的估算', !/雲層高度（估）/.test(alt), alt.slice(0, 80));
+    // v0.25：不畫高度計之外，要明講「無法估算」，火燒雲／觀星因子區也要寫無法判斷的原因（防「什麼都沒畫」也算通過）
+    const notes = await page.evaluate(() => [...document.querySelectorAll('#blueHourScoreLine .unknown-note')].map((p) => p.innerText.replace(/\s+/g, ' ').trim()));
+    console.log(`  null 情境 武嶺說明：${notes.join('｜')}（n=${notes.length}）`);
+    check('[11j] 缺氣溫／露點時改寫「雲層高度無法估算」、火燒雲與觀星寫出無法判斷的原因', notes.some((t) => /雲層高度無法估算/.test(t)) && notes.some((t) => /火燒雲無法判斷/.test(t)) && notes.some((t) => /觀星無法判斷/.test(t)));
+    const cards = await page.evaluate(() => [...document.querySelectorAll('#scoreCards .score-card')].map((c) => ({ c: c.dataset.concept, n: c.querySelector('.score-num').textContent.trim(), alert: !!c.querySelector('.ring-alert') })));
+    console.log(`  null 情境「現在此刻」卡片：${cards.map((x) => `${x.c}=${x.n}${x.alert ? '（大景預警）' : ''}`).join('、')}（n=${cards.length}）`);
+    check('[11h] 缺資料時「現在此刻」卡片分數都是「—」、沒有大景預警', cards.length >= 3 && cards.every((x) => x.n === '—' && !x.alert));
     check('[11k] null 情境沒有頁面 JS 錯誤', errors.length === 0, errors.slice(0, 2).join(' | '));
     await context.close();
   }

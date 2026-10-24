@@ -1,5 +1,7 @@
 # 402 光影獵人 LightCatcher
 
+**本機最新（2026-10-24，缺資料不當 0）：v0.25／sw lightcatcher-v52（未 commit、未部署）**：`buildH` 平均只算有效數字、全無效回 null；火燒雲／觀星／藍調缺關鍵欄位比照雲海顯示「無法判斷」、不亮大景預警；缺氣溫露點不畫雲層高度計。有資料時分數逐位元不變。`_spec/core.mjs` 126/0、`_tools/score_tests.mjs` 110/0（原 7 條已知 bug 已轉一般斷言）。見 `更新記錄.md`。
+
 **本機最新（2026-10-20，離線要有但不能擋更新）：v0.24／sw lightcatcher-v51（已 commit、未部署）**：sw 檔頭 RL_FRESH（網頁／程式／資料 network-first，4 秒退快取）＋頁尾 RL_UPDATE_OPEN（打開 10 秒內有已下載好的新版就換）；原 controllerchange 與 RL 共用 `window.__rlUpdReload`，只重整一次。見 `更新記錄.md`。
 
 **本機最新（2026-10-20，文字量調整第二波）：v0.23／sw lightcatcher-v50（已 commit、未部署）**：頁尾免責收成一行「⚠ 使用前須知 ›」（brand_inject `--footer-only`，全文仍在 DOM）；紅線清單 `_spec\紅線.txt`。見 `更新記錄.md`。

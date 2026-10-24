@@ -47,7 +47,7 @@
   });
 })();
 /* RL_FRESH_END */
-const CACHE = 'lightcatcher-v51';
+const CACHE = 'lightcatcher-v52';
 
 // 鐵則16：預先快取清單不放任何 .html（含 index.html），避免 Cloudflare Pages
 // 對 .html 的 308 轉址被存成 redirected:true 的 Response 後拿去 respondWith 導覽請求。
